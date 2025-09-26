@@ -21,7 +21,8 @@ const Login: React.FC = () => {
   const handleLogin = async () => {
     try {
       setError("");
-      const res = await api.post("/login", { username, password });
+      // Korrigierte API-URL:
+      const res = await api.post("/api/login", { username, password });
       setUser({
         username: res.data.username,
         role: res.data.role,
