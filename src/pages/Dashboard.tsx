@@ -6,12 +6,10 @@ import {
   CardContent,
   CardActions,
   Button,
-  Grid,
   Chip,
   Box,
   CircularProgress,
 } from "@mui/material";
-import api from "../api/api";
 
 interface Termin {
   id: number;
@@ -27,44 +25,49 @@ interface Termin {
   score: number;
 }
 
+const dummyTermine: Termin[] = [
+  {
+    id: 1,
+    titel: "Arbeitseinsatz",
+    beschreibung: "Platzpflege am Samstag",
+    datum: "2025-10-01",
+    beginn: "10:00",
+    ende: "14:00",
+    anzahl: 10,
+    stichtag: "2025-09-28",
+    ansprechpartner_name: "Max Mustermann",
+    ansprechpartner_mail: "max@verein.de",
+    score: 0,
+  },
+];
+
 const Dashboard: React.FC = () => {
   const [termine, setTermine] = useState<Termin[]>([]);
   const [loading, setLoading] = useState(true);
   const [myTeilnahmen, setMyTeilnahmen] = useState<number[]>([]);
   const [joining, setJoining] = useState<number | null>(null);
 
-  const fetchTermine = async () => {
-    setLoading(true);
-    try {
-      const res = await api.get("/termine");
-      setTermine(res.data);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchTermine();
+    setTimeout(() => {
+      setTermine(dummyTermine);
+      setLoading(false);
+    }, 1000);
   }, []);
 
-  const handleTeilnehmen = async (id: number) => {
+  const handleTeilnehmen = (id: number) => {
     setJoining(id);
-    try {
-      await api.post(`/termine/${id}/teilnehmen`);
+    setTimeout(() => {
       setMyTeilnahmen((prev) => [...prev, id]);
-    } finally {
       setJoining(null);
-    }
+    }, 500);
   };
 
-  const handleAbmelden = async (id: number) => {
+  const handleAbmelden = (id: number) => {
     setJoining(id);
-    try {
-      await api.delete(`/termine/${id}/teilnehmen`);
+    setTimeout(() => {
       setMyTeilnahmen((prev) => prev.filter((tid) => tid !== id));
-    } finally {
       setJoining(null);
-    }
+    }, 500);
   };
 
   return (
@@ -77,14 +80,20 @@ const Dashboard: React.FC = () => {
           <CircularProgress />
         </Box>
       ) : (
-        <Grid container spacing={2}>
+        <Box
+          sx={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 2,
+            justifyContent: "flex-start",
+          }}
+        >
           {termine.map((termin) => {
             const isAngemeldet = myTeilnahmen.includes(termin.id);
             const past =
               new Date(termin.datum).getTime() < new Date().getTime() - 24 * 3600 * 1000;
             return (
-              // Stelle sicher, dass NUR Grid das 'item'-Prop erhält!
-              <Grid item xs={12} sm={6} md={4} key={termin.id}>
+              <Box key={termin.id} sx={{ width: { xs: "100%", sm: "48%", md: "31%" } }}>
                 <Card
                   variant="outlined"
                   sx={{
@@ -134,10 +143,10 @@ const Dashboard: React.FC = () => {
                     )}
                   </CardActions>
                 </Card>
-              </Grid>
+              </Box>
             );
           })}
-        </Grid>
+        </Box>
       )}
     </Container>
   );
