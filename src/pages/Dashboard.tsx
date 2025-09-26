@@ -45,7 +45,6 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     fetchTermine();
-    // fetchMyTeilnahmen(); // Optional: eigene Teilnahmen laden
   }, []);
 
   const handleTeilnehmen = async (id: number) => {
@@ -84,6 +83,7 @@ const Dashboard: React.FC = () => {
             const past =
               new Date(termin.datum).getTime() < new Date().getTime() - 24 * 3600 * 1000;
             return (
+              // Stelle sicher, dass NUR Grid das 'item'-Prop erhält!
               <Grid item xs={12} sm={6} md={4} key={termin.id}>
                 <Card
                   variant="outlined"
