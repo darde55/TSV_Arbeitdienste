@@ -12,7 +12,9 @@ import {
   CircularProgress,
 } from "@mui/material";
 import api from "../api/api";
-import { useUserStore } from "../store/userStore";
+
+// Wenn du user nicht nutzt, importiere useUserStore NICHT!
+// import { useUserStore } from "../store/userStore";
 
 interface Termin {
   id: number;
@@ -31,7 +33,6 @@ interface Termin {
 const Dashboard: React.FC = () => {
   const [termine, setTermine] = useState<Termin[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useUserStore();
   const [myTeilnahmen, setMyTeilnahmen] = useState<number[]>([]);
   const [joining, setJoining] = useState<number | null>(null);
 
@@ -49,6 +50,7 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     fetchTermine();
+    // fetchMyTeilnahmen();
   }, []);
 
   const handleTeilnehmen = async (id: number) => {
