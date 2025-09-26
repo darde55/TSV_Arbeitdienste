@@ -13,9 +13,6 @@ import {
 } from "@mui/material";
 import api from "../api/api";
 
-// Wenn du user nicht nutzt, importiere useUserStore NICHT!
-// import { useUserStore } from "../store/userStore";
-
 interface Termin {
   id: number;
   titel: string;
@@ -46,11 +43,9 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  // Optional: fetchMyTeilnahmen() für eigene Teilnahmen (ausbauen, wenn du Endpunkt hast)
-
   useEffect(() => {
     fetchTermine();
-    // fetchMyTeilnahmen();
+    // fetchMyTeilnahmen(); // Optional: eigene Teilnahmen laden
   }, []);
 
   const handleTeilnehmen = async (id: number) => {
