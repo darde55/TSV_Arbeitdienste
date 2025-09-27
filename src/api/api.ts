@@ -1,13 +1,13 @@
 import axios from "axios";
-import { useUserStore } from "../store/userStore";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE || "/api",
 });
 
+// Interceptor liest Token IMMER aus localStorage (nicht aus Zustand!)
 api.interceptors.request.use((config) => {
-  const { user } = useUserStore.getState();
-  if (user?.token) config.headers.Authorization = `Bearer ${user.token}`;
+  const token = localStorage.getItem("token");
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
