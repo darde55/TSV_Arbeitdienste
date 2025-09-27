@@ -1,14 +1,15 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { Paper, Typography, Accordion, AccordionSummary, AccordionDetails, Table, TableBody, TableCell, TableHead, TableRow, Box } from "@mui/material";
+import {
+  Paper, Typography, Accordion, AccordionSummary, AccordionDetails,
+  Table, TableBody, TableCell, TableHead, TableRow, Box, Button,
+  Avatar, TableContainer
+} from "@mui/material";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import { de } from "date-fns/locale/de";
 import api from "../api/api";
-
-// Fix for missing types
-// If you get an error with 'react-big-calendar', create a file src/react-big-calendar.d.ts with: declare module 'react-big-calendar';
 
 const locales = { 'de': de };
 const localizer = dateFnsLocalizer({
@@ -44,15 +45,15 @@ const Dashboard: React.FC = () => {
   const [termine, setTermine] = useState<Termin[]>([]);
   const [userTermine, setUserTermine] = useState<Termin[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const token = localStorage.getItem("token");
 
   useEffect(() => {
-    // Alle Termine
     api.get<Termin[]>("/termine").then(res => setTermine(res.data));
-    // Alle Benutzer
     api.get<User[]>("/users", { headers: { Authorization: `Bearer ${token}` }}).then(res => setUsers(res.data));
-    // Eigene Termine (API muss existieren!)
+    api.get<User>("/profile", { headers: { Authorization: `Bearer ${token}` }}).then(res => setUser(res.data));
     api.get<Termin[]>("/profile/termine", { headers: { Authorization: `Bearer ${token}` }}).then(res => setUserTermine(res.data));
   }, [token]);
 
@@ -67,6 +68,9 @@ const Dashboard: React.FC = () => {
     })), [termine]
   );
 
+  // Eigene Termin-IDs für schnelles Lookup
+  const userTerminIds = useMemo(() => new Set(userTermine.map(t => t.id)), [userTermine]);
+
   // Nächster Termin
   const nextTermin = useMemo(() =>
     termine
@@ -80,6 +84,28 @@ const Dashboard: React.FC = () => {
       .filter(t => t.id !== nextTermin?.id && new Date(t.datum) >= new Date())
       .sort((a, b) => new Date(a.datum).getTime() - new Date(b.datum).getTime()), [termine, nextTermin]
   );
+
+  // Handler für Anmelden
+  const handleAnmelden = async (terminId: number) => {
+    setLoading(true);
+    try {
+      await api.post(`/termine/${terminId}/teilnehmen`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      // Aktualisiere eigene Termine
+      const res = await api.get<Termin[]>("/profile/termine", { headers: { Authorization: `Bearer ${token}` }});
+      setUserTermine(res.data);
+    } catch {
+      // Fehlerbehandlung nach Bedarf
+    }
+    setLoading(false);
+  };
+
+  // Admins aus Score-Tabelle herausfiltern
+  const usersFiltered = users.filter(u => u.role !== "admin");
+
+  // Modernes Table-Design
+  const tableHeaderSx = { background: "#f5f5f5", fontWeight: 700 };
 
   return (
     <Box sx={{ maxWidth: 1000, mx: "auto", mt: 3, mb: 4 }}>
@@ -96,27 +122,42 @@ const Dashboard: React.FC = () => {
         />
       </Paper>
 
-      {/* Nächster Termin */}
-      {nextTermin &&
-        <Paper sx={{ p: 2, mb: 2 }}>
-          <Typography variant="h6">Nächster Termin</Typography>
-          <Typography><b>{nextTermin.titel}</b> am {nextTermin.datum} {nextTermin.beginn && `um ${nextTermin.beginn}`}</Typography>
-          <Typography>{nextTermin.beschreibung}</Typography>
-          <Typography>Ansprechpartner: {nextTermin.ansprechpartner_name} ({nextTermin.ansprechpartner_mail})</Typography>
+      {/* Einzelne Termin-Boxen, sortiert */}
+      {[nextTermin, ...weitereTermine].filter(Boolean).map((t) => (
+        <Paper key={t?.id} sx={{ p: 2, mb: 2, boxShadow: 3, borderRadius: 2 }}>
+          <Accordion>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Box sx={{ width: "100%" }}>
+                <Typography variant="h6">{t?.titel}</Typography>
+                <Typography>
+                  {t?.datum}
+                  {t?.beginn && ` | ${t.beginn} Uhr`}
+                  {t?.ende && ` - ${t.ende} Uhr`}
+                </Typography>
+              </Box>
+              {!userTerminIds.has(t!.id) &&
+                <Button
+                  variant="contained"
+                  color="primary"
+                  size="small"
+                  sx={{ ml: 2 }}
+                  disabled={loading}
+                  onClick={e => {
+                    e.stopPropagation();
+                    handleAnmelden(t!.id);
+                  }}
+                >
+                  Anmelden
+                </Button>
+              }
+            </AccordionSummary>
+            <AccordionDetails>
+              <Typography>Stichtag: {t?.stichtag || "-"}</Typography>
+              <Typography>Ansprechpartner: {t?.ansprechpartner_name || "-"} {t?.ansprechpartner_mail && `(${t?.ansprechpartner_mail})`}</Typography>
+            </AccordionDetails>
+          </Accordion>
         </Paper>
-      }
-
-      {/* Weitere Termine */}
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Typography variant="h6">Weitere Termine</Typography>
-        {weitereTermine.length === 0 && <Typography>Keine weiteren Termine.</Typography>}
-        {weitereTermine.map(t => (
-          <Box key={t.id} sx={{ mb: 1 }}>
-            <Typography><b>{t.titel}</b> am {t.datum} {t.beginn && `um ${t.beginn}`}</Typography>
-            <Typography>{t.beschreibung}</Typography>
-          </Box>
-        ))}
-      </Paper>
+      ))}
 
       {/* Eigene Termine (Accordion) */}
       <Paper sx={{ p: 2, mb: 2 }}>
@@ -125,7 +166,7 @@ const Dashboard: React.FC = () => {
         {userTermine.map(t => (
           <Accordion key={t.id}>
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Typography>{t.titel} ({t.datum})</Typography>
+              <Typography>{t.titel} ({t.datum} {t.beginn && `um ${t.beginn}`})</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <Typography>Beschreibung: {t.beschreibung}</Typography>
@@ -140,27 +181,34 @@ const Dashboard: React.FC = () => {
         ))}
       </Paper>
 
-      {/* Score-Tabelle */}
+      {/* Score-Tabelle (ohne Admins) */}
       <Paper sx={{ p: 2 }}>
-        <Typography variant="h6">Score Tabelle</Typography>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Benutzer</TableCell>
-              <TableCell>Score</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {users
-              .sort((a, b) => a.score - b.score)
-              .map(u => (
-                <TableRow key={u.username}>
-                  <TableCell>{u.username}</TableCell>
-                  <TableCell>{u.score}</TableCell>
-                </TableRow>
-              ))}
-          </TableBody>
-        </Table>
+        <Typography variant="h6" mb={2}>Score Tabelle</Typography>
+        <TableContainer>
+          <Table size="small" sx={{ borderRadius: 2, overflow: "hidden" }}>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={tableHeaderSx}>Benutzer</TableCell>
+                <TableCell sx={tableHeaderSx}>Score</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {usersFiltered
+                .sort((a, b) => a.score - b.score)
+                .map(u => (
+                  <TableRow key={u.username}>
+                    <TableCell>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <Avatar sx={{ width: 24, height: 24, bgcolor: "#1976d2" }}>{u.username[0].toUpperCase()}</Avatar>
+                        <span>{u.username}</span>
+                      </Box>
+                    </TableCell>
+                    <TableCell>{u.score}</TableCell>
+                  </TableRow>
+                ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </Paper>
     </Box>
   );
