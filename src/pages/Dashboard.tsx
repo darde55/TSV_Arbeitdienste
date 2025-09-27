@@ -1,38 +1,28 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  Paper, Typography, Accordion, AccordionSummary, AccordionDetails,
-  Table, TableBody, TableCell, TableHead, TableRow, Box, Button,
-  Avatar, TableContainer, Snackbar, Alert
+  Paper, Typography, TextField, Button, List, ListItem, ListItemText, Box, Alert,
+  Divider, IconButton, Select, MenuItem, FormControl, InputLabel
 } from "@mui/material";
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { Calendar, dateFnsLocalizer } from "react-big-calendar";
-import 'react-big-calendar/lib/css/react-big-calendar.css';
-import { format, parse, startOfWeek, getDay } from "date-fns";
+import { TimePicker } from '@mui/x-date-pickers/TimePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { de } from "date-fns/locale/de";
+import { Delete, Edit } from "@mui/icons-material";
 import api from "../api/api";
-
-const locales = { 'de': de };
-const localizer = dateFnsLocalizer({
-  format,
-  parse,
-  startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 1 }),
-  getDay,
-  locales,
-});
 
 type Termin = {
   id: number;
   titel: string;
   beschreibung?: string;
-  datum: string; // YYYY-MM-DD
-  beginn?: string; // HH:MM
+  datum: string;
+  beginn?: string;
   ende?: string;
   anzahl?: number;
   stichtag?: string;
   ansprechpartner_name?: string;
   ansprechpartner_mail?: string;
   score?: number;
-  teilnehmer?: { username: string }[]; // Array der Teilnehmer (optional, Backend muss liefern!)
+  stichtag_mail_gesendet?: boolean;
 };
 
 type User = {
@@ -42,209 +32,260 @@ type User = {
   score: number;
 };
 
-const Dashboard: React.FC = () => {
+const initialTerminState: Omit<Termin, "id"> = {
+  titel: "",
+  beschreibung: "",
+  datum: "",
+  beginn: "",
+  ende: "",
+  anzahl: undefined,
+  stichtag: "",
+  ansprechpartner_name: "",
+  ansprechpartner_mail: "",
+  score: 0,
+  stichtag_mail_gesendet: false,
+};
+
+const TermineAdmin: React.FC = () => {
   const [termine, setTermine] = useState<Termin[]>([]);
-  const [userTermine, setUserTermine] = useState<Termin[]>([]);
+  const [form, setForm] = useState<Omit<Termin, "id">>(initialTerminState);
+  const [editTermin, setEditTermin] = useState<Termin | null>(null);
+  const [message, setMessage] = useState("");
   const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [snackOpen, setSnackOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<string>("");
 
-  const token = localStorage.getItem("token");
-
-  useEffect(() => {
-    api.get<Termin[]>("/termine").then(res => setTermine(res.data));
-    api.get<User[]>("/users", { headers: { Authorization: `Bearer ${token}` }}).then(res => setUsers(res.data));
-    api.get<Termin[]>("/profile/termine", { headers: { Authorization: `Bearer ${token}` }}).then(res => setUserTermine(res.data));
-  }, [token]);
-
-  // Events für Kalender
-  const calendarEvents = useMemo(() =>
-    termine.map(t => ({
-      title: t.titel,
-      start: new Date(`${t.datum}T${t.beginn || "00:00"}`),
-      end: new Date(`${t.datum}T${t.ende || t.beginn || "23:59"}`),
-      allDay: !t.beginn,
-      resource: t,
-    })), [termine]
-  );
-
-  // Eigene Termin-IDs für schnelles Lookup
-  const userTerminIds = useMemo(() => new Set(userTermine.map(t => t.id)), [userTermine]);
-
-  // Nächster Termin
-  const nextTermin = useMemo(() =>
-    termine
-      .filter(t => new Date(t.datum) >= new Date())
-      .sort((a, b) => new Date(a.datum).getTime() - new Date(b.datum).getTime())[0], [termine]
-  );
-
-  // Weitere Termine (außer nächster)
-  const weitereTermine = useMemo(() =>
-    termine
-      .filter(t => t.id !== nextTermin?.id && new Date(t.datum) >= new Date())
-      .sort((a, b) => new Date(a.datum).getTime() - new Date(b.datum).getTime()), [termine, nextTermin]
-  );
-
-  // Handler für Anmelden
-  const handleAnmelden = async (terminId: number) => {
-    setLoading(true);
+  const fetchTermine = async () => {
     try {
-      await api.post(`/termine/${terminId}/teilnehmen`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      // Aktualisiere eigene Termine
-      const res = await api.get<Termin[]>("/profile/termine", { headers: { Authorization: `Bearer ${token}` }});
-      setUserTermine(res.data);
-      setSnackOpen(true);
+      const res = await api.get<Termin[]>("/termine");
+      setTermine(res.data);
     } catch {
-      // Fehlerbehandlung nach Bedarf
+      setTermine([]);
     }
-    setLoading(false);
   };
 
-  // Admins aus Score-Tabelle herausfiltern
-  const usersFiltered = users.filter(u => u.role !== "admin");
+  const fetchUsers = async () => {
+    try {
+      const res = await api.get<User[]>("/users");
+      setUsers(res.data);
+    } catch {
+      setUsers([]);
+    }
+  };
 
-  // Moderneres Table-Design
-  const tableHeaderSx = { background: "#f5f5f5", fontWeight: 700 };
+  useEffect(() => {
+    fetchTermine();
+    fetchUsers();
+  }, []);
 
-  // Alle sichtbaren Termine (nächster + weitere)
-  const alleSichtbarenTermine = [nextTermin, ...weitereTermine].filter(Boolean);
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type } = e.target;
+    setForm(prev => ({
+      ...prev,
+      [name]: type === "number" ? Number(value) : value
+    }));
+  };
 
-  // Hilfsfunktion: Offene Plätze berechnen
-  function offenePlaetze(t: Termin) {
-    const max = t.anzahl ?? 0;
-    const teilnehmer = t.teilnehmer ? t.teilnehmer.length : 0;
-    return max > 0 ? Math.max(0, max - teilnehmer) : "-";
-  }
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setForm(prev => ({
+      ...prev,
+      stichtag_mail_gesendet: e.target.checked
+    }));
+  };
+
+  // Hilfsfunktionen für TimePicker
+  const parseTime = (value?: string): Date | null => {
+    if (!value) return null;
+    const [hour, minute] = value.split(":");
+    const d = new Date();
+    d.setHours(Number(hour));
+    d.setMinutes(Number(minute));
+    d.setSeconds(0);
+    d.setMilliseconds(0);
+    return d;
+  };
+  const formatTime = (date: Date | null): string => {
+    if (!date) return "";
+    // always HH:mm, 24h
+    const h = date.getHours().toString().padStart(2, "0");
+    const m = date.getMinutes().toString().padStart(2, "0");
+    return `${h}:${m}`;
+  };
+
+  const handleCreate = async () => {
+    try {
+      await api.post("/termine", form);
+      setMessage("Termin erfolgreich angelegt!");
+      setForm(initialTerminState);
+      fetchTermine();
+    } catch {
+      setMessage("Fehler beim Anlegen!");
+    }
+  };
+
+  const handleEdit = (termin: Termin) => {
+    setEditTermin(termin);
+    setForm({
+      ...termin,
+      beginn: termin.beginn ?? "",
+      ende: termin.ende ?? "",
+      stichtag: termin.stichtag ?? "",
+      beschreibung: termin.beschreibung ?? "",
+      ansprechpartner_name: termin.ansprechpartner_name ?? "",
+      ansprechpartner_mail: termin.ansprechpartner_mail ?? "",
+      score: termin.score ?? 0,
+      stichtag_mail_gesendet: termin.stichtag_mail_gesendet ?? false,
+    });
+  };
+
+  const handleUpdate = async () => {
+    if (!editTermin) return;
+    try {
+      await api.put(`/termine/${editTermin.id}`, form);
+      setMessage("Termin erfolgreich bearbeitet!");
+      setEditTermin(null);
+      setForm(initialTerminState);
+      fetchTermine();
+    } catch {
+      setMessage("Fehler beim Bearbeiten!");
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await api.delete(`/termine/${id}`);
+      setMessage("Termin gelöscht");
+      fetchTermine();
+    } catch {
+      setMessage("Fehler beim Löschen!");
+    }
+  };
+
+  // Admin kann User zu Termin hinzufügen
+  const handleAddUserToTermin = async () => {
+    if (!editTermin || !selectedUser) return;
+    try {
+      await api.post(`/termine/${editTermin.id}/teilnehmen`, { username: selectedUser });
+      setMessage(`User ${selectedUser} zum Termin hinzugefügt!`);
+      setSelectedUser("");
+    } catch {
+      setMessage("Fehler beim Hinzufügen des Users zum Termin!");
+    }
+  };
 
   return (
-    <Box sx={{ maxWidth: 1000, mx: "auto", mt: 3, mb: 4 }}>
-      {/* Snackbar nach erfolgreicher Anmeldung */}
-      <Snackbar
-        open={snackOpen}
-        autoHideDuration={8000}
-        onClose={() => setSnackOpen(false)}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
-      >
-        <Alert severity="success" sx={{ width: "100%" }} onClose={() => setSnackOpen(false)}>
-          Du bist angemeldet! Checke dein E-Mail Postfach – auch den Ordner Spam.
-        </Alert>
-      </Snackbar>
-
-      {/* Großer Kalender */}
-      <Paper sx={{ p: 2, mb: 4 }}>
-        <Typography variant="h5" mb={2}>Terminkalender</Typography>
-        <Calendar
-          localizer={localizer}
-          events={calendarEvents}
-          startAccessor="start"
-          endAccessor="end"
-          style={{ height: 400 }}
-          culture="de"
-        />
-      </Paper>
-
-      {/* Einzelne Termin-Boxen, sortiert */}
-      {alleSichtbarenTermine.map((t) => (
-        <Paper key={t.id} sx={{ p: 2, mb: 2, boxShadow: 3, borderRadius: 2 }}>
-          <Accordion>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Box sx={{ width: "100%" }}>
-                <Typography variant="h6">{t.titel}</Typography>
-                <Typography>
-                  {t.datum}
-                  {t.beginn && ` | ${t.beginn} Uhr`}
-                  {t.ende && ` - ${t.ende} Uhr`}
-                </Typography>
-                {t.anzahl &&
-                  <Typography sx={{ color: "text.secondary" }}>
-                    Offene Plätze: {offenePlaetze(t)} / {t.anzahl}
-                  </Typography>
-                }
+    <Paper sx={{ p: 3 }}>
+      <Typography variant="h6" mb={2}>Terminverwaltung</Typography>
+      {/* Abschnitt 1: Neuen Termin anlegen */}
+      <Typography mb={1}>Neuen Termin anlegen:</Typography>
+      <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={de}>
+        <Box mb={2} display="flex" flexWrap="wrap" gap={1}>
+          <TextField label="Titel" name="titel" value={form.titel} onChange={handleChange} size="small" />
+          <TextField label="Beschreibung" name="beschreibung" value={form.beschreibung} onChange={handleChange} size="small" />
+          <TextField label="Datum" name="datum" type="date" value={form.datum} onChange={handleChange} size="small" InputLabelProps={{ shrink: true }} />
+          <TimePicker
+            label="Beginn"
+            value={parseTime(form.beginn)}
+            onChange={(value) => setForm(prev => ({
+              ...prev,
+              beginn: formatTime(value as Date)
+            }))}
+            ampm={false}
+            slotProps={{
+              textField: { size: "small" }
+            }}
+          />
+          <TimePicker
+            label="Ende"
+            value={parseTime(form.ende)}
+            onChange={(value) => setForm(prev => ({
+              ...prev,
+              ende: formatTime(value as Date)
+            }))}
+            ampm={false}
+            slotProps={{
+              textField: { size: "small" }
+            }}
+          />
+          <TextField label="Anzahl" name="anzahl" type="number" value={form.anzahl ?? ""} onChange={handleChange} size="small" />
+          <TextField label="Stichtag" name="stichtag" type="date" value={form.stichtag} onChange={handleChange} size="small" InputLabelProps={{ shrink: true }} />
+          <TextField label="Ansprechpartner Name" name="ansprechpartner_name" value={form.ansprechpartner_name} onChange={handleChange} size="small" />
+          <TextField label="Ansprechpartner Mail" name="ansprechpartner_mail" value={form.ansprechpartner_mail} onChange={handleChange} size="small" />
+          <TextField label="Score" name="score" type="number" value={form.score ?? ""} onChange={handleChange} size="small" />
+          <label>
+            <input
+              type="checkbox"
+              checked={!!form.stichtag_mail_gesendet}
+              onChange={handleCheckboxChange}
+            />
+            Stichtag-Mail gesendet
+          </label>
+          {!editTermin ? (
+            <Button variant="contained" onClick={handleCreate}>Anlegen</Button>
+          ) : (
+            <Button variant="contained" color="secondary" onClick={handleUpdate}>Speichern</Button>
+          )}
+          {editTermin && (
+            <Button variant="outlined" color="error" onClick={() => {setEditTermin(null); setForm(initialTerminState);}}>Abbrechen</Button>
+          )}
+        </Box>
+      </LocalizationProvider>
+      <Divider sx={{ my: 2 }} />
+      {/* Abschnitt 2: Termine bearbeiten/löschen + User zuweisen */}
+      <Typography mb={1}>Vorhandene Termine bearbeiten/löschen:</Typography>
+      {message && <Alert severity={message.includes("Fehler") ? "error" : "success"} sx={{mb:1}}>{message}</Alert>}
+      <List>
+        {termine.map(termin => (
+          <ListItem key={termin.id}
+            secondaryAction={
+              <>
+                <IconButton edge="end" aria-label="edit" onClick={() => handleEdit(termin)}>
+                  <Edit />
+                </IconButton>
+                <IconButton edge="end" aria-label="delete" onClick={() => handleDelete(termin.id)}>
+                  <Delete />
+                </IconButton>
+              </>
+            }>
+            <ListItemText 
+              primary={`${termin.titel} (${termin.datum})`}
+              secondary={
+                <>
+                  {termin.beschreibung && <span>Beschreibung: {termin.beschreibung} | </span>}
+                  {termin.beginn && <span>Beginn: {termin.beginn} | </span>}
+                  {termin.ende && <span>Ende: {termin.ende} | </span>}
+                  {typeof termin.anzahl === "number" && <span>Anzahl: {termin.anzahl} | </span>}
+                  {termin.stichtag && <span>Stichtag: {termin.stichtag} | </span>}
+                  {termin.ansprechpartner_name && <span>Ansprechpartner: {termin.ansprechpartner_name} | </span>}
+                  {termin.ansprechpartner_mail && <span>Email: {termin.ansprechpartner_mail} | </span>}
+                  {typeof termin.score === "number" && <span>Score: {termin.score} | </span>}
+                  {typeof termin.stichtag_mail_gesendet !== "undefined" && <span>Mail gesendet: {termin.stichtag_mail_gesendet ? "Ja" : "Nein"}</span>}
+                </>
+              }
+            />
+            {/* User zu Termin hinzufügen */}
+            {editTermin && editTermin.id === termin.id && (
+              <Box sx={{ mt: 1 }}>
+                <FormControl sx={{ minWidth: 120 }}>
+                  <InputLabel id="user-select-label">User hinzufügen</InputLabel>
+                  <Select
+                    labelId="user-select-label"
+                    value={selectedUser}
+                    label="User hinzufügen"
+                    onChange={e => setSelectedUser(e.target.value)}
+                  >
+                    {users.map(u => (
+                      <MenuItem key={u.username} value={u.username}>{u.username}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <Button variant="outlined" sx={{ ml: 1 }} onClick={handleAddUserToTermin}>Hinzufügen</Button>
               </Box>
-              {!userTerminIds.has(t.id) &&
-                <Button
-                  variant="contained"
-                  color="primary"
-                  size="small"
-                  sx={{ ml: 2 }}
-                  disabled={loading}
-                  onClick={e => {
-                    e.stopPropagation();
-                    handleAnmelden(t.id);
-                  }}
-                >
-                  Anmelden
-                </Button>
-              }
-              {userTerminIds.has(t.id) &&
-                <Typography sx={{ ml: 2, color: "success.main", fontWeight: 700 }}>
-                  Du bist angemeldet!
-                </Typography>
-              }
-            </AccordionSummary>
-            <AccordionDetails>
-              <Typography>Stichtag: {t.stichtag || "-"}</Typography>
-              <Typography>Ansprechpartner: {t.ansprechpartner_name || "-"} {t.ansprechpartner_mail && `(${t.ansprechpartner_mail})`}</Typography>
-            </AccordionDetails>
-          </Accordion>
-        </Paper>
-      ))}
-
-      {/* Eigene Termine (Accordion) */}
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Typography variant="h6">Meine Termine</Typography>
-        {userTermine.length === 0 && <Typography>Du bist aktuell für keine Termine angemeldet.</Typography>}
-        {userTermine.map(t => (
-          <Accordion key={t.id}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Typography>{t.titel} ({t.datum} {t.beginn && `um ${t.beginn}`})</Typography>
-            </AccordionSummary>
-            <AccordionDetails>
-              <Typography>Beschreibung: {t.beschreibung}</Typography>
-              <Typography>Beginn: {t.beginn}</Typography>
-              <Typography>Ende: {t.ende}</Typography>
-              <Typography>Anzahl: {t.anzahl}</Typography>
-              <Typography>Stichtag: {t.stichtag}</Typography>
-              <Typography>Ansprechpartner: {t.ansprechpartner_name} ({t.ansprechpartner_mail})</Typography>
-              <Typography>Score: {t.score}</Typography>
-            </AccordionDetails>
-          </Accordion>
+            )}
+          </ListItem>
         ))}
-      </Paper>
-
-      {/* Score-Tabelle (ohne Admins) */}
-      <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" mb={2}>Score Tabelle</Typography>
-        <TableContainer>
-          <Table size="small" sx={{ borderRadius: 2, overflow: "hidden" }}>
-            <TableHead>
-              <TableRow>
-                <TableCell sx={tableHeaderSx}>Benutzer</TableCell>
-                <TableCell sx={tableHeaderSx}>Score</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {usersFiltered
-                .sort((a, b) => a.score - b.score)
-                .map(u => (
-                  <TableRow key={u.username}>
-                    <TableCell>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <Avatar sx={{ width: 24, height: 24, bgcolor: "#1976d2" }}>{u.username[0].toUpperCase()}</Avatar>
-                        <span>{u.username}</span>
-                      </Box>
-                    </TableCell>
-                    <TableCell>{u.score}</TableCell>
-                  </TableRow>
-                ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
-    </Box>
+      </List>
+    </Paper>
   );
 };
 
-export default Dashboard;
+export default TermineAdmin;
