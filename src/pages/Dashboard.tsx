@@ -8,7 +8,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { format, parse, startOfWeek, getDay } from "date-fns";
-import { de } from "date-fns/locale/de";
+import { de } from "date-fns/locale";
 import api from "../api/api";
 
 const locales = { 'de': de };
@@ -64,15 +64,30 @@ const Dashboard: React.FC = () => {
     return `${h.padStart(2, "0")}:${m.padStart(2, "0")}`;
   };
 
+  // Alle Daten holen
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      setTokenError("Du bist nicht eingeloggt. Bitte melde dich zuerst an.");
-      return;
-    }
-    api.get<Termin[]>("/termine").then(res => setTermine(res.data));
-    api.get<User[]>("/users", { headers: { Authorization: `Bearer ${token}` }}).then(res => setUsers(res.data));
-    api.get<Termin[]>("/profile/termine", { headers: { Authorization: `Bearer ${token}` }}).then(res => setUserTermine(res.data));
+    const fetchData = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setTokenError("Du bist nicht eingeloggt. Bitte melde dich zuerst an.");
+        return;
+      }
+      try {
+        const [termineRes, usersRes, userTermineRes] = await Promise.all([
+          api.get<Termin[]>("/termine"),
+          api.get<User[]>("/users"),
+          api.get<Termin[]>("/profile/termine"),
+        ]);
+        setTermine(termineRes.data);
+        setUsers(usersRes.data);
+        setUserTermine(userTermineRes.data);
+      } catch (err) {
+        // Fehler loggen für Debugging
+        console.error("Fehler beim Laden der Daten:", err);
+        setTokenError("Fehler beim Laden der Daten. Dein Token ist ungültig oder abgelaufen. Bitte melde dich neu an.");
+      }
+    };
+    fetchData();
   }, []);
 
   // Events für Kalender
@@ -116,22 +131,15 @@ const Dashboard: React.FC = () => {
 
   // Handler für Anmelden
   const handleAnmelden = async (terminId: number) => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      setTokenError("Du bist nicht eingeloggt. Bitte melde dich zuerst an.");
-      return;
-    }
     setLoading(true);
     try {
-      await api.post(
-        `/termine/${terminId}/teilnehmen`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      const res = await api.get<Termin[]>("/profile/termine", { headers: { Authorization: `Bearer ${token}` }});
+      await api.post(`/termine/${terminId}/teilnehmen`);
+      const res = await api.get<Termin[]>("/profile/termine");
       setUserTermine(res.data);
       setSnackOpen(true);
-    } catch {
+    } catch (err) {
+      // Fehler loggen für Debugging
+      console.error("Fehler beim Anmelden:", err);
       setTokenError("Fehler beim Anmelden. Dein Token ist ungültig oder abgelaufen. Bitte melde dich neu an.");
     }
     setLoading(false);
