@@ -25,12 +25,14 @@ type User = {
   email: string;
   role: string;
   score: number;
+  password?: string;
 };
 
 const initialUserState: Omit<User, "score"> = {
   username: "",
   email: "",
   role: "user",
+  password: "",
 };
 
 const ROLE_OPTIONS = [
@@ -83,7 +85,7 @@ const UserAdmin: React.FC = () => {
     try {
       await api.post(
         "/users",
-        { ...form, password: "defaultpw" },
+        { ...form },
         {
           headers: { Authorization: `Bearer ${getToken()}` },
         }
@@ -98,7 +100,7 @@ const UserAdmin: React.FC = () => {
 
   const handleEdit = (user: User) => {
     setEditUser(user);
-    setForm(user);
+    setForm({ ...user, password: "" }); // leeres Passwort beim Bearbeiten
   };
 
   const handleUpdate = async () => {
@@ -147,6 +149,14 @@ const UserAdmin: React.FC = () => {
           label="Email"
           name="email"
           value={form.email}
+          onChange={handleChange}
+          size="small"
+        />
+        <TextField
+          label="Passwort"
+          name="password"
+          type="password"
+          value={form.password}
           onChange={handleChange}
           size="small"
         />
