@@ -48,9 +48,7 @@ const Dashboard: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [snackOpen, setSnackOpen] = useState(false);
-
-  // Token holen
-  const token = localStorage.getItem("token");
+  const [tokenError, setTokenError] = useState<string>("");
 
   // Datum und Uhrzeit formatieren
   const formatDate = (dateStr?: string) => {
@@ -61,17 +59,21 @@ const Dashboard: React.FC = () => {
   };
   const formatTime = (time?: string) => {
     if (!time) return "";
-    // Zeit als HH:mm anzeigen
     const [h, m] = time.split(":");
     if (!h || !m) return time;
     return `${h.padStart(2, "0")}:${m.padStart(2, "0")}`;
   };
 
   useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setTokenError("Du bist nicht eingeloggt. Bitte melde dich zuerst an.");
+      return;
+    }
     api.get<Termin[]>("/termine").then(res => setTermine(res.data));
     api.get<User[]>("/users", { headers: { Authorization: `Bearer ${token}` }}).then(res => setUsers(res.data));
     api.get<Termin[]>("/profile/termine", { headers: { Authorization: `Bearer ${token}` }}).then(res => setUserTermine(res.data));
-  }, [token]);
+  }, []);
 
   // Events für Kalender
   const calendarEvents = useMemo(() =>
@@ -114,6 +116,11 @@ const Dashboard: React.FC = () => {
 
   // Handler für Anmelden
   const handleAnmelden = async (terminId: number) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setTokenError("Du bist nicht eingeloggt. Bitte melde dich zuerst an.");
+      return;
+    }
     setLoading(true);
     try {
       await api.post(
@@ -121,12 +128,11 @@ const Dashboard: React.FC = () => {
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      // Aktualisiere eigene Termine
       const res = await api.get<Termin[]>("/profile/termine", { headers: { Authorization: `Bearer ${token}` }});
       setUserTermine(res.data);
       setSnackOpen(true);
     } catch {
-      alert("Fehler beim Anmelden (Token?)");
+      setTokenError("Fehler beim Anmelden. Dein Token ist ungültig oder abgelaufen. Bitte melde dich neu an.");
     }
     setLoading(false);
   };
@@ -147,6 +153,13 @@ const Dashboard: React.FC = () => {
           Du bist angemeldet! Checke dein E-Mail Postfach – auch den Ordner Spam.
         </Alert>
       </Snackbar>
+
+      {/* Token-Fehleranzeige */}
+      {tokenError && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {tokenError}
+        </Alert>
+      )}
 
       {/* Großer Kalender */}
       <Paper sx={{ p: 2, mb: 4 }}>
@@ -185,7 +198,7 @@ const Dashboard: React.FC = () => {
                   color="primary"
                   size="small"
                   sx={{ ml: 2 }}
-                  disabled={loading}
+                  disabled={loading || !!tokenError}
                   onClick={e => {
                     e.stopPropagation();
                     handleAnmelden(t.id);
