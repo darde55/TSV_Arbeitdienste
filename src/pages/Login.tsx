@@ -21,8 +21,11 @@ const Login: React.FC = () => {
   const handleLogin = async () => {
     try {
       setError("");
-      // Korrigierte API-URL (nur /login, da baseURL schon /api ist)
       const res = await api.post("/login", { username, password });
+
+      // Token im localStorage speichern!
+      localStorage.setItem("token", res.data.token);
+
       setUser({
         username: res.data.username,
         role: res.data.role,
