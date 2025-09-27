@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { Paper, Typography, Box, Chip } from "@mui/material";
+import { Paper, Typography, Box, Chip, Alert } from "@mui/material";
 import api from "../api/api";
+import axios from "axios";
 
 interface UserProfileType {
   username: string;
@@ -11,10 +12,39 @@ interface UserProfileType {
 
 const Profile: React.FC = () => {
   const [profile, setProfile] = useState<UserProfileType | null>(null);
+  const [error, setError] = useState<string>("");
 
   useEffect(() => {
-    api.get("/profile").then((res) => setProfile(res.data));
+    const fetchProfile = async () => {
+      if (!localStorage.getItem("token")) {
+        setError("Du bist nicht eingeloggt. Bitte melde dich zuerst an.");
+        return;
+      }
+      try {
+        const res = await api.get<UserProfileType>("/profile");
+        setProfile(res.data);
+      } catch (err) {
+        if (axios.isAxiosError(err)) {
+          setError(
+            err.response?.data?.message ||
+              "Fehler beim Laden des Profils. Dein Token ist ungültig oder abgelaufen."
+          );
+        } else {
+          setError("Unbekannter Fehler beim Laden des Profils.");
+        }
+        console.error("Profil-Fehler:", err);
+      }
+    };
+    fetchProfile();
   }, []);
+
+  if (error) {
+    return (
+      <Box sx={{ mt: 5, display: "flex", justifyContent: "center" }}>
+        <Alert severity="error">{error}</Alert>
+      </Box>
+    );
+  }
 
   if (!profile) return null;
 

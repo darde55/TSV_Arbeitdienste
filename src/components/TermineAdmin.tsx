@@ -53,13 +53,16 @@ const TermineAdmin: React.FC = () => {
   const [message, setMessage] = useState("");
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<string>("");
+  const [error, setError] = useState<string>("");
 
   const fetchTermine = async () => {
     try {
       const res = await api.get<Termin[]>("/termine");
       setTermine(res.data);
-    } catch {
+    } catch (err) {
       setTermine([]);
+      setError("Fehler beim Laden der Termine.");
+      console.error("Termine-Fehler:", err);
     }
   };
 
@@ -67,8 +70,10 @@ const TermineAdmin: React.FC = () => {
     try {
       const res = await api.get<User[]>("/users");
       setUsers(res.data);
-    } catch {
+    } catch (err) {
       setUsers([]);
+      setError("Fehler beim Laden der User.");
+      console.error("User-Fehler:", err);
     }
   };
 
@@ -105,7 +110,6 @@ const TermineAdmin: React.FC = () => {
   };
   const formatTime = (date: Date | null): string => {
     if (!date) return "";
-    // always HH:mm, 24h
     const h = date.getHours().toString().padStart(2, "0");
     const m = date.getMinutes().toString().padStart(2, "0");
     return `${h}:${m}`;
@@ -117,8 +121,9 @@ const TermineAdmin: React.FC = () => {
       setMessage("Termin erfolgreich angelegt!");
       setForm(initialTerminState);
       fetchTermine();
-    } catch {
+    } catch (err) {
       setMessage("Fehler beim Anlegen!");
+      console.error("Anlegen-Fehler:", err);
     }
   };
 
@@ -145,8 +150,9 @@ const TermineAdmin: React.FC = () => {
       setEditTermin(null);
       setForm(initialTerminState);
       fetchTermine();
-    } catch {
+    } catch (err) {
       setMessage("Fehler beim Bearbeiten!");
+      console.error("Bearbeiten-Fehler:", err);
     }
   };
 
@@ -155,8 +161,9 @@ const TermineAdmin: React.FC = () => {
       await api.delete(`/termine/${id}`);
       setMessage("Termin gelöscht");
       fetchTermine();
-    } catch {
+    } catch (err) {
       setMessage("Fehler beim Löschen!");
+      console.error("Löschen-Fehler:", err);
     }
   };
 
@@ -167,15 +174,18 @@ const TermineAdmin: React.FC = () => {
       await api.post(`/termine/${editTermin.id}/teilnehmen`, { username: selectedUser });
       setMessage(`User ${selectedUser} zum Termin hinzugefügt!`);
       setSelectedUser("");
-    } catch {
+    } catch (err) {
       setMessage("Fehler beim Hinzufügen des Users zum Termin!");
+      console.error("User-zuweisen-Fehler:", err);
     }
   };
 
   return (
     <Paper sx={{ p: 3 }}>
       <Typography variant="h6" mb={2}>Terminverwaltung</Typography>
-      {/* Abschnitt 1: Neuen Termin anlegen */}
+      {/* Abschnitt 1: Fehleranzeige */}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {/* Abschnitt 2: Neuen Termin anlegen */}
       <Typography mb={1}>Neuen Termin anlegen:</Typography>
       <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={de}>
         <Box mb={2} display="flex" flexWrap="wrap" gap={1}>
@@ -230,7 +240,7 @@ const TermineAdmin: React.FC = () => {
         </Box>
       </LocalizationProvider>
       <Divider sx={{ my: 2 }} />
-      {/* Abschnitt 2: Termine bearbeiten/löschen + User zuweisen */}
+      {/* Abschnitt 3: Termine bearbeiten/löschen + User zuweisen */}
       <Typography mb={1}>Vorhandene Termine bearbeiten/löschen:</Typography>
       {message && <Alert severity={message.includes("Fehler") ? "error" : "success"} sx={{mb:1}}>{message}</Alert>}
       <List>

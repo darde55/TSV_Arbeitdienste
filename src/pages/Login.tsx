@@ -10,6 +10,7 @@ import {
 import api from "../api/api";
 import { useUserStore } from "../store/userStore";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState("");
@@ -19,11 +20,16 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
 
   const handleLogin = async () => {
+    setError("");
     try {
-      setError("");
       const res = await api.post("/login", { username, password });
 
-      // Token im localStorage speichern!
+      // Prüfe ob Token vorhanden ist
+      if (!res.data.token) {
+        setError("Login fehlgeschlagen: Kein Token vom Server erhalten.");
+        return;
+      }
+
       localStorage.setItem("token", res.data.token);
 
       setUser({
@@ -31,9 +37,19 @@ const Login: React.FC = () => {
         role: res.data.role,
         token: res.data.token,
       });
+
       navigate("/");
-    } catch {
-      setError("Login fehlgeschlagen! Bitte überprüfe deine Daten.");
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        const message =
+          err.response?.data?.message ||
+          "Login fehlgeschlagen! Bitte überprüfe deine Daten.";
+        setError(message);
+        console.error("Login Error:", err);
+      } else {
+        setError("Unbekannter Fehler beim Login.");
+        console.error("Unbekannter Fehler beim Login:", err);
+      }
     }
   };
 

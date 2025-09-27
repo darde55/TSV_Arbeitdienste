@@ -10,6 +10,7 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import { de } from "date-fns/locale";
 import api from "../api/api";
+import axios from "axios";
 
 const locales = { 'de': de };
 const localizer = dateFnsLocalizer({
@@ -67,8 +68,8 @@ const Dashboard: React.FC = () => {
   // Alle Daten holen
   useEffect(() => {
     const fetchData = async () => {
-      const token = localStorage.getItem("token");
-      if (!token) {
+      // Info-Meldung, falls Token fehlt (API-Interceptor übernimmt Auth)
+      if (!localStorage.getItem("token")) {
         setTokenError("Du bist nicht eingeloggt. Bitte melde dich zuerst an.");
         return;
       }
@@ -82,9 +83,16 @@ const Dashboard: React.FC = () => {
         setUsers(usersRes.data);
         setUserTermine(userTermineRes.data);
       } catch (err) {
-        // Fehler loggen für Debugging
-        console.error("Fehler beim Laden der Daten:", err);
-        setTokenError("Fehler beim Laden der Daten. Dein Token ist ungültig oder abgelaufen. Bitte melde dich neu an.");
+        if (axios.isAxiosError(err)) {
+          setTokenError(
+            err.response?.data?.message ||
+            "Fehler beim Laden der Daten. Dein Token ist ungültig oder abgelaufen. Bitte melde dich neu an."
+          );
+          console.error("Fehler beim Laden der Daten:", err);
+        } else {
+          setTokenError("Unbekannter Fehler beim Laden der Daten.");
+          console.error("Unbekannter Fehler beim Laden der Daten:", err);
+        }
       }
     };
     fetchData();
@@ -138,9 +146,16 @@ const Dashboard: React.FC = () => {
       setUserTermine(res.data);
       setSnackOpen(true);
     } catch (err) {
-      // Fehler loggen für Debugging
-      console.error("Fehler beim Anmelden:", err);
-      setTokenError("Fehler beim Anmelden. Dein Token ist ungültig oder abgelaufen. Bitte melde dich neu an.");
+      if (axios.isAxiosError(err)) {
+        setTokenError(
+          err.response?.data?.message ||
+          "Fehler beim Anmelden. Dein Token ist ungültig oder abgelaufen. Bitte melde dich neu an."
+        );
+        console.error("Fehler beim Anmelden:", err);
+      } else {
+        setTokenError("Unbekannter Fehler beim Anmelden.");
+        console.error("Unbekannter Fehler beim Anmelden:", err);
+      }
     }
     setLoading(false);
   };

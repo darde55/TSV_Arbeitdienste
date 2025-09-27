@@ -46,17 +46,15 @@ const UserAdmin: React.FC = () => {
   const [editUser, setEditUser] = useState<User | null>(null);
   const [message, setMessage] = useState("");
 
-  // Helper to get token (from localStorage, Context, etc.)
-  const getToken = () => localStorage.getItem("token");
-
+  // Fetch all users
   const fetchUsers = useCallback(async () => {
     try {
-      const res = await api.get<User[]>("/users", {
-        headers: { Authorization: `Bearer ${getToken()}` },
-      });
+      const res = await api.get<User[]>("/users");
       setUsers(res.data);
-    } catch {
+    } catch (err) {
       setUsers([]);
+      setMessage("Fehler beim Laden der Benutzer!");
+      console.error("User-Admin Load Error:", err);
     }
   }, []);
 
@@ -83,18 +81,13 @@ const UserAdmin: React.FC = () => {
 
   const handleCreate = async () => {
     try {
-      await api.post(
-        "/users",
-        { ...form },
-        {
-          headers: { Authorization: `Bearer ${getToken()}` },
-        }
-      );
+      await api.post("/users", { ...form });
       setMessage("Benutzer erfolgreich angelegt!");
       setForm(initialUserState);
       fetchUsers();
-    } catch {
+    } catch (err) {
       setMessage("Fehler beim Anlegen!");
+      console.error("User-Admin Create Error:", err);
     }
   };
 
@@ -106,27 +99,25 @@ const UserAdmin: React.FC = () => {
   const handleUpdate = async () => {
     if (!editUser) return;
     try {
-      await api.put(`/users/${editUser.username}`, form, {
-        headers: { Authorization: `Bearer ${getToken()}` },
-      });
+      await api.put(`/users/${editUser.username}`, form);
       setMessage("Benutzer erfolgreich bearbeitet!");
       setEditUser(null);
       setForm(initialUserState);
       fetchUsers();
-    } catch {
+    } catch (err) {
       setMessage("Fehler beim Bearbeiten!");
+      console.error("User-Admin Update Error:", err);
     }
   };
 
   const handleDelete = async (username: string) => {
     try {
-      await api.delete(`/users/${username}`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
-      });
+      await api.delete(`/users/${username}`);
       setMessage("Benutzer gelöscht");
       fetchUsers();
-    } catch {
+    } catch (err) {
       setMessage("Fehler beim Löschen!");
+      console.error("User-Admin Delete Error:", err);
     }
   };
 
