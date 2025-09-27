@@ -11,6 +11,8 @@ import { format, parse, startOfWeek, getDay } from "date-fns";
 import { de } from "date-fns/locale/de";
 import api from "../api/api";
 
+// TypeScript Fix: If you get an error with 'react-big-calendar', create a file src/react-big-calendar.d.ts with: declare module 'react-big-calendar';
+
 const locales = { 'de': de };
 const localizer = dateFnsLocalizer({
   format,
@@ -45,7 +47,6 @@ const Dashboard: React.FC = () => {
   const [termine, setTermine] = useState<Termin[]>([]);
   const [userTermine, setUserTermine] = useState<Termin[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
 
   const token = localStorage.getItem("token");
@@ -53,7 +54,6 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     api.get<Termin[]>("/termine").then(res => setTermine(res.data));
     api.get<User[]>("/users", { headers: { Authorization: `Bearer ${token}` }}).then(res => setUsers(res.data));
-    api.get<User>("/profile", { headers: { Authorization: `Bearer ${token}` }}).then(res => setUser(res.data));
     api.get<Termin[]>("/profile/termine", { headers: { Authorization: `Bearer ${token}` }}).then(res => setUserTermine(res.data));
   }, [token]);
 
@@ -104,8 +104,11 @@ const Dashboard: React.FC = () => {
   // Admins aus Score-Tabelle herausfiltern
   const usersFiltered = users.filter(u => u.role !== "admin");
 
-  // Modernes Table-Design
+  // Moderneres Table-Design
   const tableHeaderSx = { background: "#f5f5f5", fontWeight: 700 };
+
+  // Alle sichtbaren Termine (nächster + weitere)
+  const alleSichtbarenTermine = [nextTermin, ...weitereTermine].filter(Boolean);
 
   return (
     <Box sx={{ maxWidth: 1000, mx: "auto", mt: 3, mb: 4 }}>
@@ -123,19 +126,19 @@ const Dashboard: React.FC = () => {
       </Paper>
 
       {/* Einzelne Termin-Boxen, sortiert */}
-      {[nextTermin, ...weitereTermine].filter(Boolean).map((t) => (
-        <Paper key={t?.id} sx={{ p: 2, mb: 2, boxShadow: 3, borderRadius: 2 }}>
+      {alleSichtbarenTermine.map((t) => (
+        <Paper key={t.id} sx={{ p: 2, mb: 2, boxShadow: 3, borderRadius: 2 }}>
           <Accordion>
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
               <Box sx={{ width: "100%" }}>
-                <Typography variant="h6">{t?.titel}</Typography>
+                <Typography variant="h6">{t.titel}</Typography>
                 <Typography>
-                  {t?.datum}
-                  {t?.beginn && ` | ${t.beginn} Uhr`}
-                  {t?.ende && ` - ${t.ende} Uhr`}
+                  {t.datum}
+                  {t.beginn && ` | ${t.beginn} Uhr`}
+                  {t.ende && ` - ${t.ende} Uhr`}
                 </Typography>
               </Box>
-              {!userTerminIds.has(t!.id) &&
+              {!userTerminIds.has(t.id) &&
                 <Button
                   variant="contained"
                   color="primary"
@@ -144,7 +147,7 @@ const Dashboard: React.FC = () => {
                   disabled={loading}
                   onClick={e => {
                     e.stopPropagation();
-                    handleAnmelden(t!.id);
+                    handleAnmelden(t.id);
                   }}
                 >
                   Anmelden
@@ -152,8 +155,8 @@ const Dashboard: React.FC = () => {
               }
             </AccordionSummary>
             <AccordionDetails>
-              <Typography>Stichtag: {t?.stichtag || "-"}</Typography>
-              <Typography>Ansprechpartner: {t?.ansprechpartner_name || "-"} {t?.ansprechpartner_mail && `(${t?.ansprechpartner_mail})`}</Typography>
+              <Typography>Stichtag: {t.stichtag || "-"}</Typography>
+              <Typography>Ansprechpartner: {t.ansprechpartner_name || "-"} {t.ansprechpartner_mail && `(${t.ansprechpartner_mail})`}</Typography>
             </AccordionDetails>
           </Accordion>
         </Paper>
