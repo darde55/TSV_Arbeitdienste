@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   Paper,
   Typography,
@@ -49,7 +49,7 @@ const UserAdmin: React.FC = () => {
   // Helper to get token (from localStorage, Context, etc.)
   const getToken = () => localStorage.getItem("token");
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       const res = await api.get<User[]>("/users", {
         headers: { Authorization: `Bearer ${getToken()}` },
@@ -58,11 +58,11 @@ const UserAdmin: React.FC = () => {
     } catch {
       setUsers([]);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [fetchUsers]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement>
