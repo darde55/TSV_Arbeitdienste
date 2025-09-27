@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import {
   Paper, Typography, Accordion, AccordionSummary, AccordionDetails,
   Table, TableBody, TableCell, TableHead, TableRow, Box, Button,
-  Avatar, TableContainer
+  Avatar, TableContainer, Snackbar, Alert
 } from "@mui/material";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
@@ -10,8 +10,6 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import { de } from "date-fns/locale/de";
 import api from "../api/api";
-
-// TypeScript Fix: If you get an error with 'react-big-calendar', create a file src/react-big-calendar.d.ts with: declare module 'react-big-calendar';
 
 const locales = { 'de': de };
 const localizer = dateFnsLocalizer({
@@ -34,6 +32,7 @@ type Termin = {
   ansprechpartner_name?: string;
   ansprechpartner_mail?: string;
   score?: number;
+  teilnehmer?: { username: string }[]; // Array der Teilnehmer (optional, Backend muss liefern!)
 };
 
 type User = {
@@ -48,6 +47,7 @@ const Dashboard: React.FC = () => {
   const [userTermine, setUserTermine] = useState<Termin[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
+  const [snackOpen, setSnackOpen] = useState(false);
 
   const token = localStorage.getItem("token");
 
@@ -95,6 +95,7 @@ const Dashboard: React.FC = () => {
       // Aktualisiere eigene Termine
       const res = await api.get<Termin[]>("/profile/termine", { headers: { Authorization: `Bearer ${token}` }});
       setUserTermine(res.data);
+      setSnackOpen(true);
     } catch {
       // Fehlerbehandlung nach Bedarf
     }
@@ -110,8 +111,27 @@ const Dashboard: React.FC = () => {
   // Alle sichtbaren Termine (nächster + weitere)
   const alleSichtbarenTermine = [nextTermin, ...weitereTermine].filter(Boolean);
 
+  // Hilfsfunktion: Offene Plätze berechnen
+  function offenePlaetze(t: Termin) {
+    const max = t.anzahl ?? 0;
+    const teilnehmer = t.teilnehmer ? t.teilnehmer.length : 0;
+    return max > 0 ? Math.max(0, max - teilnehmer) : "-";
+  }
+
   return (
     <Box sx={{ maxWidth: 1000, mx: "auto", mt: 3, mb: 4 }}>
+      {/* Snackbar nach erfolgreicher Anmeldung */}
+      <Snackbar
+        open={snackOpen}
+        autoHideDuration={8000}
+        onClose={() => setSnackOpen(false)}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert severity="success" sx={{ width: "100%" }} onClose={() => setSnackOpen(false)}>
+          Du bist angemeldet! Checke dein E-Mail Postfach – auch den Ordner Spam.
+        </Alert>
+      </Snackbar>
+
       {/* Großer Kalender */}
       <Paper sx={{ p: 2, mb: 4 }}>
         <Typography variant="h5" mb={2}>Terminkalender</Typography>
@@ -137,6 +157,11 @@ const Dashboard: React.FC = () => {
                   {t.beginn && ` | ${t.beginn} Uhr`}
                   {t.ende && ` - ${t.ende} Uhr`}
                 </Typography>
+                {t.anzahl &&
+                  <Typography sx={{ color: "text.secondary" }}>
+                    Offene Plätze: {offenePlaetze(t)} / {t.anzahl}
+                  </Typography>
+                }
               </Box>
               {!userTerminIds.has(t.id) &&
                 <Button
@@ -152,6 +177,11 @@ const Dashboard: React.FC = () => {
                 >
                   Anmelden
                 </Button>
+              }
+              {userTerminIds.has(t.id) &&
+                <Typography sx={{ ml: 2, color: "success.main", fontWeight: 700 }}>
+                  Du bist angemeldet!
+                </Typography>
               }
             </AccordionSummary>
             <AccordionDetails>

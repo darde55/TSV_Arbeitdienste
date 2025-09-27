@@ -1,5 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { Paper, Typography, TextField, Button, List, ListItem, ListItemText, Box, Alert, Divider, IconButton, Select, MenuItem, FormControl, InputLabel } from "@mui/material";
+import {
+  Paper, Typography, TextField, Button, List, ListItem, ListItemText, Box, Alert,
+  Divider, IconButton, Select, MenuItem, FormControl, InputLabel
+} from "@mui/material";
+import { TimePicker } from '@mui/x-date-pickers/TimePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { de } from "date-fns/locale";
 import { Delete, Edit } from "@mui/icons-material";
 import api from "../api/api";
 
@@ -85,6 +92,25 @@ const TermineAdmin: React.FC = () => {
     }));
   };
 
+  // Hilfsfunktionen für TimePicker
+  const parseTime = (value?: string): Date | null => {
+    if (!value) return null;
+    const [hour, minute] = value.split(":");
+    const d = new Date();
+    d.setHours(Number(hour));
+    d.setMinutes(Number(minute));
+    d.setSeconds(0);
+    d.setMilliseconds(0);
+    return d;
+  };
+  const formatTime = (date: Date | null): string => {
+    if (!date) return "";
+    // always HH:mm, 24h
+    const h = date.getHours().toString().padStart(2, "0");
+    const m = date.getMinutes().toString().padStart(2, "0");
+    return `${h}:${m}`;
+  };
+
   const handleCreate = async () => {
     try {
       await api.post("/termine", form);
@@ -98,7 +124,17 @@ const TermineAdmin: React.FC = () => {
 
   const handleEdit = (termin: Termin) => {
     setEditTermin(termin);
-    setForm(termin);
+    setForm({
+      ...termin,
+      beginn: termin.beginn ?? "",
+      ende: termin.ende ?? "",
+      stichtag: termin.stichtag ?? "",
+      beschreibung: termin.beschreibung ?? "",
+      ansprechpartner_name: termin.ansprechpartner_name ?? "",
+      ansprechpartner_mail: termin.ansprechpartner_mail ?? "",
+      score: termin.score ?? 0,
+      stichtag_mail_gesendet: termin.stichtag_mail_gesendet ?? false,
+    });
   };
 
   const handleUpdate = async () => {
@@ -141,34 +177,58 @@ const TermineAdmin: React.FC = () => {
       <Typography variant="h6" mb={2}>Terminverwaltung</Typography>
       {/* Abschnitt 1: Neuen Termin anlegen */}
       <Typography mb={1}>Neuen Termin anlegen:</Typography>
-      <Box mb={2} display="flex" flexWrap="wrap" gap={1}>
-        <TextField label="Titel" name="titel" value={form.titel} onChange={handleChange} size="small" />
-        <TextField label="Beschreibung" name="beschreibung" value={form.beschreibung} onChange={handleChange} size="small" />
-        <TextField label="Datum" name="datum" type="date" value={form.datum} onChange={handleChange} size="small" InputLabelProps={{ shrink: true }} />
-        <TextField label="Beginn" name="beginn" value={form.beginn} onChange={handleChange} size="small" />
-        <TextField label="Ende" name="ende" value={form.ende} onChange={handleChange} size="small" />
-        <TextField label="Anzahl" name="anzahl" type="number" value={form.anzahl ?? ""} onChange={handleChange} size="small" />
-        <TextField label="Stichtag" name="stichtag" type="date" value={form.stichtag} onChange={handleChange} size="small" InputLabelProps={{ shrink: true }} />
-        <TextField label="Ansprechpartner Name" name="ansprechpartner_name" value={form.ansprechpartner_name} onChange={handleChange} size="small" />
-        <TextField label="Ansprechpartner Mail" name="ansprechpartner_mail" value={form.ansprechpartner_mail} onChange={handleChange} size="small" />
-        <TextField label="Score" name="score" type="number" value={form.score ?? ""} onChange={handleChange} size="small" />
-        <label>
-          <input
-            type="checkbox"
-            checked={!!form.stichtag_mail_gesendet}
-            onChange={handleCheckboxChange}
+      <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={de}>
+        <Box mb={2} display="flex" flexWrap="wrap" gap={1}>
+          <TextField label="Titel" name="titel" value={form.titel} onChange={handleChange} size="small" />
+          <TextField label="Beschreibung" name="beschreibung" value={form.beschreibung} onChange={handleChange} size="small" />
+          <TextField label="Datum" name="datum" type="date" value={form.datum} onChange={handleChange} size="small" InputLabelProps={{ shrink: true }} />
+          <TimePicker
+            label="Beginn"
+            value={parseTime(form.beginn)}
+            onChange={(value) => setForm(prev => ({
+              ...prev,
+              beginn: formatTime(value as Date)
+            }))}
+            ampm={false}
+            slotProps={{
+              textField: { size: "small" }
+            }}
           />
-          Stichtag-Mail gesendet
-        </label>
-        {!editTermin ? (
-          <Button variant="contained" onClick={handleCreate}>Anlegen</Button>
-        ) : (
-          <Button variant="contained" color="secondary" onClick={handleUpdate}>Speichern</Button>
-        )}
-        {editTermin && (
-          <Button variant="outlined" color="error" onClick={() => {setEditTermin(null); setForm(initialTerminState);}}>Abbrechen</Button>
-        )}
-      </Box>
+          <TimePicker
+            label="Ende"
+            value={parseTime(form.ende)}
+            onChange={(value) => setForm(prev => ({
+              ...prev,
+              ende: formatTime(value as Date)
+            }))}
+            ampm={false}
+            slotProps={{
+              textField: { size: "small" }
+            }}
+          />
+          <TextField label="Anzahl" name="anzahl" type="number" value={form.anzahl ?? ""} onChange={handleChange} size="small" />
+          <TextField label="Stichtag" name="stichtag" type="date" value={form.stichtag} onChange={handleChange} size="small" InputLabelProps={{ shrink: true }} />
+          <TextField label="Ansprechpartner Name" name="ansprechpartner_name" value={form.ansprechpartner_name} onChange={handleChange} size="small" />
+          <TextField label="Ansprechpartner Mail" name="ansprechpartner_mail" value={form.ansprechpartner_mail} onChange={handleChange} size="small" />
+          <TextField label="Score" name="score" type="number" value={form.score ?? ""} onChange={handleChange} size="small" />
+          <label>
+            <input
+              type="checkbox"
+              checked={!!form.stichtag_mail_gesendet}
+              onChange={handleCheckboxChange}
+            />
+            Stichtag-Mail gesendet
+          </label>
+          {!editTermin ? (
+            <Button variant="contained" onClick={handleCreate}>Anlegen</Button>
+          ) : (
+            <Button variant="contained" color="secondary" onClick={handleUpdate}>Speichern</Button>
+          )}
+          {editTermin && (
+            <Button variant="outlined" color="error" onClick={() => {setEditTermin(null); setForm(initialTerminState);}}>Abbrechen</Button>
+          )}
+        </Box>
+      </LocalizationProvider>
       <Divider sx={{ my: 2 }} />
       {/* Abschnitt 2: Termine bearbeiten/löschen + User zuweisen */}
       <Typography mb={1}>Vorhandene Termine bearbeiten/löschen:</Typography>
