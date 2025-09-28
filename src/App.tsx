@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Dashboard from "./pages/Dashboard";
@@ -8,7 +8,11 @@ import Admin from "./pages/Admin";
 import { useUserStore } from "./store/userStore";
 
 const App: React.FC = () => {
-  const { user } = useUserStore();
+  const { user, fetchUser } = useUserStore();
+
+  useEffect(() => {
+    fetchUser();
+  }, [fetchUser]); // <--- Dependency hinzugefügt
 
   return (
     <>
