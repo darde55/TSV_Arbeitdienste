@@ -25,8 +25,8 @@ type Termin = {
   id: number;
   titel: string;
   beschreibung?: string;
-  datum: string; // YYYY-MM-DD
-  beginn?: string; // HH:MM
+  datum: string;
+  beginn?: string;
   ende?: string;
   anzahl?: number;
   stichtag?: string;
@@ -65,37 +65,38 @@ const Dashboard: React.FC = () => {
     return `${h.padStart(2, "0")}:${m.padStart(2, "0")}`;
   };
 
-  // Alle Daten holen
+  // Daten holen
+  const fetchAllData = async () => {
+    if (!localStorage.getItem("token")) {
+      setTokenError("Du bist nicht eingeloggt. Bitte melde dich zuerst an.");
+      return;
+    }
+    try {
+      const [termineRes, usersRes, userTermineRes] = await Promise.all([
+        api.get<Termin[]>("/termine"),
+        api.get<User[]>("/users"),
+        api.get<Termin[]>("/profile/termine"),
+      ]);
+      setTermine(termineRes.data);
+      setUsers(usersRes.data);
+      setUserTermine(userTermineRes.data);
+      setTokenError("");
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        setTokenError(
+          err.response?.data?.message ||
+          "Fehler beim Laden der Daten. Dein Token ist ungültig oder abgelaufen. Bitte melde dich neu an."
+        );
+        console.error("Fehler beim Laden der Daten:", err);
+      } else {
+        setTokenError("Unbekannter Fehler beim Laden der Daten.");
+        console.error("Unbekannter Fehler beim Laden der Daten:", err);
+      }
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      // Info-Meldung, falls Token fehlt (API-Interceptor übernimmt Auth)
-      if (!localStorage.getItem("token")) {
-        setTokenError("Du bist nicht eingeloggt. Bitte melde dich zuerst an.");
-        return;
-      }
-      try {
-        const [termineRes, usersRes, userTermineRes] = await Promise.all([
-          api.get<Termin[]>("/termine"),
-          api.get<User[]>("/users"),
-          api.get<Termin[]>("/profile/termine"),
-        ]);
-        setTermine(termineRes.data);
-        setUsers(usersRes.data);
-        setUserTermine(userTermineRes.data);
-      } catch (err) {
-        if (axios.isAxiosError(err)) {
-          setTokenError(
-            err.response?.data?.message ||
-            "Fehler beim Laden der Daten. Dein Token ist ungültig oder abgelaufen. Bitte melde dich neu an."
-          );
-          console.error("Fehler beim Laden der Daten:", err);
-        } else {
-          setTokenError("Unbekannter Fehler beim Laden der Daten.");
-          console.error("Unbekannter Fehler beim Laden der Daten:", err);
-        }
-      }
-    };
-    fetchData();
+    fetchAllData();
   }, []);
 
   // Events für Kalender
@@ -142,8 +143,8 @@ const Dashboard: React.FC = () => {
     setLoading(true);
     try {
       await api.post(`/termine/${terminId}/teilnehmen`);
-      const res = await api.get<Termin[]>("/profile/termine");
-      setUserTermine(res.data);
+      // Nach erfolgreicher Anmeldung alle Daten neu laden!
+      await fetchAllData();
       setSnackOpen(true);
     } catch (err) {
       if (axios.isAxiosError(err)) {
