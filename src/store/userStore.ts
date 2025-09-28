@@ -3,8 +3,10 @@ import axios from "axios";
 
 interface UserType {
   username: string;
+  email: string;
   role: "admin" | "user";
-  token: string;
+  score: number;
+  token: string; // Nur lokal, nicht vom API!
 }
 
 interface UserStore {
@@ -35,7 +37,7 @@ export const useUserStore = create<UserStore>((set) => ({
       const res = await axios.get("/api/profile", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      // Set User with token, so it's always available
+      // Mische die Daten aus dem Backend mit dem Token aus LocalStorage
       set({ user: { ...res.data, token } });
     } catch {
       localStorage.removeItem("token");

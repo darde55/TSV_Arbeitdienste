@@ -16,18 +16,22 @@ const Profile: React.FC = () => {
 
   useEffect(() => {
     const fetchProfile = async () => {
-      if (!localStorage.getItem("token")) {
+      const token = localStorage.getItem("token");
+      if (!token) {
         setError("Du bist nicht eingeloggt. Bitte melde dich zuerst an.");
         return;
       }
       try {
-        const res = await api.get<UserProfileType>("/profile");
+        // Sende den Token IMMER mit!
+        const res = await api.get<UserProfileType>("/api/profile", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         setProfile(res.data);
       } catch (err) {
         if (axios.isAxiosError(err)) {
           setError(
             err.response?.data?.message ||
-              "Fehler beim Laden des Profils. Dein Token ist ungültig oder abgelaufen."
+              "Fehler beim Laden des Profils. Dein Token ist ungültig, abgelaufen oder die API-Route /api/profile existiert nicht."
           );
         } else {
           setError("Unbekannter Fehler beim Laden des Profils.");
