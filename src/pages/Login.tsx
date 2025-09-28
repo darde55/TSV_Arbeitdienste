@@ -32,11 +32,24 @@ const Login: React.FC = () => {
 
       localStorage.setItem("token", res.data.token);
 
-      setUser({
-        username: res.data.username,
-        role: res.data.role,
-        token: res.data.token,
-      });
+      // Hole zusätzliche Userdaten aus /api/profile
+      try {
+        const profileRes = await api.get("/api/profile", {
+          headers: { Authorization: `Bearer ${res.data.token}` },
+        });
+
+        setUser({
+          username: res.data.username,
+          role: res.data.role,
+          token: res.data.token,
+          email: profileRes.data.email,
+          score: profileRes.data.score,
+        });
+      } catch (profileErr) {
+        setError("Login erfolgreich, aber Fehler beim Laden des Profils.");
+        console.error("Profile Fetch Error:", profileErr);
+        return;
+      }
 
       navigate("/");
     } catch (err) {
