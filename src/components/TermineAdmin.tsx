@@ -23,8 +23,6 @@ import EditIcon from "@mui/icons-material/Edit";
 import RemoveCircleIcon from "@mui/icons-material/RemoveCircle";
 import api from "../api/api";
 
-// Debug-Hinweis: State & Props anzeigen, damit du Fehler sofort erkennst
-
 type Termin = {
   id: number;
   titel: string;
@@ -64,7 +62,7 @@ const initialTerminState: Omit<Termin, "id" | "teilnehmer"> = {
   zufallsauswahl: false,
 };
 
-const TermineAdminDebug: React.FC = () => {
+const TermineAdmin: React.FC = () => {
   const [termine, setTermine] = useState<Termin[]>([]);
   const [form, setForm] = useState<Omit<Termin, "id" | "teilnehmer">>(initialTerminState);
   const [editTermin, setEditTermin] = useState<Termin | null>(null);
@@ -84,7 +82,7 @@ const TermineAdminDebug: React.FC = () => {
     } catch (err) {
       setTermine([]);
       setMessage("Fehler beim Laden der Termine.");
-      if (err) console.error("Termine-Fehler:", err);
+      if (err) console.error(err);
     }
   };
 
@@ -95,7 +93,7 @@ const TermineAdminDebug: React.FC = () => {
     } catch (err) {
       setUsers([]);
       setMessage("Fehler beim Laden der User.");
-      if (err) console.error("User-Fehler:", err);
+      if (err) console.error(err);
     }
   };
 
@@ -141,7 +139,7 @@ const TermineAdminDebug: React.FC = () => {
       fetchTermine();
     } catch (err) {
       setMessage("Fehler beim Anlegen!");
-      if (err) console.error("Create-Fehler:", err);
+      if (err) console.error(err);
     }
   };
 
@@ -172,7 +170,7 @@ const TermineAdminDebug: React.FC = () => {
       fetchTermine();
     } catch (err) {
       setMessage("Fehler beim Bearbeiten!");
-      if (err) console.error("Update-Fehler:", err);
+      if (err) console.error(err);
     }
   };
 
@@ -183,7 +181,7 @@ const TermineAdminDebug: React.FC = () => {
       fetchTermine();
     } catch (err) {
       setMessage("Fehler beim Löschen!");
-      if (err) console.error("Delete-Fehler:", err);
+      if (err) console.error(err);
     }
   };
 
@@ -196,7 +194,7 @@ const TermineAdminDebug: React.FC = () => {
       fetchTermine();
     } catch (err) {
       setMessage("Fehler beim Hinzufügen des Users zum Termin!");
-      if (err) console.error("AddUser-Fehler:", err);
+      if (err) console.error(err);
     }
   };
 
@@ -207,14 +205,13 @@ const TermineAdminDebug: React.FC = () => {
       fetchTermine();
     } catch (err) {
       setMessage("Fehler beim Entfernen des Users vom Termin!");
-      if (err) console.error("RemoveUser-Fehler:", err);
+      if (err) console.error(err);
     }
   };
 
   return (
     <Paper sx={{ p: 3 }}>
-      <Typography variant="h6" mb={2}>Terminverwaltung (DEBUG-Version)</Typography>
-      <Alert severity="info" sx={{ mb: 2 }}>DEBUG: Wenn du hier keinen Fehler siehst, ist das File korrekt eingebunden!</Alert>
+      <Typography variant="h6" mb={2}>Terminverwaltung</Typography>
       {message && <Alert severity={message.includes("Fehler") ? "error" : "success"} sx={{ mb: 2 }}>{message}</Alert>}
       <Typography mb={1}>{editTermin ? "Termin bearbeiten:" : "Neuen Termin anlegen:"}</Typography>
       <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={de}>
@@ -351,20 +348,8 @@ const TermineAdminDebug: React.FC = () => {
           </ListItem>
         ))}
       </List>
-      <Divider sx={{ my: 2 }} />
-      <Box sx={{ bgcolor: "#f5f5f5", p: 2, mt: 2, borderRadius: 2 }}>
-        <Typography variant="subtitle1" color="primary">DEBUG-Bereich:</Typography>
-        <Typography variant="body2">form-Objekt:</Typography>
-        <pre style={{ fontSize: "0.9em" }}>{JSON.stringify(form, null, 2)}</pre>
-        <Typography variant="body2">editTermin:</Typography>
-        <pre style={{ fontSize: "0.9em" }}>{JSON.stringify(editTermin, null, 2)}</pre>
-        <Typography variant="body2">Termine:</Typography>
-        <pre style={{ fontSize: "0.9em", maxHeight: 100, overflow: "auto" }}>{JSON.stringify(termine, null, 2)}</pre>
-        <Typography variant="body2">Users:</Typography>
-        <pre style={{ fontSize: "0.9em", maxHeight: 100, overflow: "auto" }}>{JSON.stringify(users, null, 2)}</pre>
-      </Box>
     </Paper>
   );
 };
 
-export default TermineAdminDebug;
+export default TermineAdmin;

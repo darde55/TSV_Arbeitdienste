@@ -51,7 +51,6 @@ const Dashboard: React.FC = () => {
   const [snackOpen, setSnackOpen] = useState(false);
   const [tokenError, setTokenError] = useState<string>("");
 
-  // Datum und Uhrzeit formatieren
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return "";
     const d = new Date(dateStr);
@@ -65,7 +64,6 @@ const Dashboard: React.FC = () => {
     return `${h.padStart(2, "0")}:${m.padStart(2, "0")}`;
   };
 
-  // Daten holen
   const fetchAllData = async () => {
     if (!localStorage.getItem("token")) {
       setTokenError("Du bist nicht eingeloggt. Bitte melde dich zuerst an.");
@@ -113,6 +111,30 @@ const Dashboard: React.FC = () => {
   // Eigene Termin-IDs für schnelles Lookup
   const userTerminIds = useMemo(() => new Set(userTermine.map(t => t.id)), [userTermine]);
 
+  // Kalender-Event-Styles: Farbliche Markierung nach Status
+  const eventPropGetter = (event: any) => {
+    const isUserAngemeldet = userTerminIds.has(event.resource.id);
+    const isPast = new Date(event.end) < new Date();
+
+    let style = {
+      backgroundColor: "#1976d2", // Standard: blau
+      color: "white",
+      borderRadius: "8px",
+      border: "none",
+      opacity: 1,
+      fontWeight: 600,
+    };
+    if (isUserAngemeldet) {
+      style.backgroundColor = "#2e7d32"; // Grün
+    }
+    if (isPast) {
+      style.backgroundColor = "#b0b0b0"; // Grau
+      style.color = "#333";
+      style.opacity = 0.7;
+    }
+    return { style };
+  };
+
   // Nächster Termin
   const nextTermin = useMemo(() =>
     termine
@@ -131,19 +153,16 @@ const Dashboard: React.FC = () => {
   const usersFiltered = users.filter(u => u.role !== "admin");
   const tableHeaderSx = { background: "#f5f5f5", fontWeight: 700 };
 
-  // Offene Plätze berechnen
   function offenePlaetze(t: Termin) {
     const max = t.anzahl ?? 0;
     const teilnehmer = t.teilnehmer ? t.teilnehmer.length : 0;
     return max > 0 ? Math.max(0, max - teilnehmer) : "-";
   }
 
-  // Handler für Anmelden
   const handleAnmelden = async (terminId: number) => {
     setLoading(true);
     try {
       await api.post(`/termine/${terminId}/teilnehmen`);
-      // Nach erfolgreicher Anmeldung alle Daten neu laden!
       await fetchAllData();
       setSnackOpen(true);
     } catch (err) {
@@ -161,12 +180,10 @@ const Dashboard: React.FC = () => {
     setLoading(false);
   };
 
-  // Alle sichtbaren Termine (nächster + weitere)
   const alleSichtbarenTermine = [nextTermin, ...weitereTermine].filter(Boolean);
 
   return (
     <Box sx={{ maxWidth: 1000, mx: "auto", mt: 3, mb: 4 }}>
-      {/* Snackbar nach erfolgreicher Anmeldung */}
       <Snackbar
         open={snackOpen}
         autoHideDuration={8000}
@@ -178,14 +195,12 @@ const Dashboard: React.FC = () => {
         </Alert>
       </Snackbar>
 
-      {/* Token-Fehleranzeige */}
       {tokenError && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {tokenError}
         </Alert>
       )}
 
-      {/* Großer Kalender */}
       <Paper sx={{ p: 2, mb: 4 }}>
         <Typography variant="h5" mb={2}>Terminkalender</Typography>
         <Calendar
@@ -195,10 +210,10 @@ const Dashboard: React.FC = () => {
           endAccessor="end"
           style={{ height: 400 }}
           culture="de"
+          eventPropGetter={eventPropGetter}
         />
       </Paper>
 
-      {/* Einzelne Termin-Boxen, sortiert */}
       {alleSichtbarenTermine.map((t) => (
         <Paper key={t.id} sx={{ p: 2, mb: 2, boxShadow: 3, borderRadius: 2 }}>
           <Accordion>
@@ -245,7 +260,6 @@ const Dashboard: React.FC = () => {
         </Paper>
       ))}
 
-      {/* Eigene Termine (Accordion) */}
       <Paper sx={{ p: 2, mb: 2 }}>
         <Typography variant="h6">Meine Termine</Typography>
         {userTermine.length === 0 && <Typography>Du bist aktuell für keine Termine angemeldet.</Typography>}
@@ -269,7 +283,6 @@ const Dashboard: React.FC = () => {
         ))}
       </Paper>
 
-      {/* Score-Tabelle (ohne Admins) */}
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6" mb={2}>Score Tabelle</Typography>
         <TableContainer>
