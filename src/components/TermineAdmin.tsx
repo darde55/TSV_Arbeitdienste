@@ -7,7 +7,7 @@ import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { de } from "date-fns/locale";
-import { Delete, Edit } from "@mui/icons-material";
+import { Delete, Edit, RemoveCircle } from "@mui/icons-material";
 import api from "../api/api";
 
 type Termin = {
@@ -23,6 +23,7 @@ type Termin = {
   ansprechpartner_mail?: string;
   score?: number;
   stichtag_mail_gesendet?: boolean;
+  teilnehmer?: { username: string }[];
 };
 
 type User = {
@@ -32,7 +33,7 @@ type User = {
   score: number;
 };
 
-const initialTerminState: Omit<Termin, "id"> = {
+const initialTerminState: Omit<Termin, "id" | "teilnehmer"> = {
   titel: "",
   beschreibung: "",
   datum: "",
@@ -48,7 +49,7 @@ const initialTerminState: Omit<Termin, "id"> = {
 
 const TermineAdmin: React.FC = () => {
   const [termine, setTermine] = useState<Termin[]>([]);
-  const [form, setForm] = useState<Omit<Termin, "id">>(initialTerminState);
+  const [form, setForm] = useState<Omit<Termin, "id" | "teilnehmer">>(initialTerminState);
   const [editTermin, setEditTermin] = useState<Termin | null>(null);
   const [message, setMessage] = useState("");
   const [users, setUsers] = useState<User[]>([]);
@@ -174,16 +175,28 @@ const TermineAdmin: React.FC = () => {
       await api.post(`/termine/${editTermin.id}/teilnehmen`, { username: selectedUser });
       setMessage(`User ${selectedUser} zum Termin hinzugefügt!`);
       setSelectedUser("");
+      fetchTermine();
     } catch (err) {
       setMessage("Fehler beim Hinzufügen des Users zum Termin!");
       console.error("User-zuweisen-Fehler:", err);
     }
   };
 
+  // Admin kann User von Termin entfernen
+  const handleRemoveUserFromTermin = async (terminId: number, username: string) => {
+    try {
+      await api.delete(`/termine/${terminId}/teilnehmer/${username}`);
+      setMessage(`User ${username} vom Termin entfernt!`);
+      fetchTermine();
+    } catch (err) {
+      setMessage("Fehler beim Entfernen des Users vom Termin!");
+      console.error("User-entfernen-Fehler:", err);
+    }
+  };
+
   return (
     <Paper sx={{ p: 3 }}>
       <Typography variant="h6" mb={2}>Terminverwaltung</Typography>
-      {/* Abschnitt 1: Fehleranzeige */}
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {/* Abschnitt 2: Neuen Termin anlegen */}
       <Typography mb={1}>Neuen Termin anlegen:</Typography>
@@ -269,6 +282,21 @@ const TermineAdmin: React.FC = () => {
                   {termin.ansprechpartner_mail && <span>Email: {termin.ansprechpartner_mail} | </span>}
                   {typeof termin.score === "number" && <span>Score: {termin.score} | </span>}
                   {typeof termin.stichtag_mail_gesendet !== "undefined" && <span>Mail gesendet: {termin.stichtag_mail_gesendet ? "Ja" : "Nein"}</span>}
+                  {/* Teilnehmer anzeigen und entfernen */}
+                  {termin.teilnehmer && termin.teilnehmer.length > 0 && (
+                    <Box sx={{ display: "block", mt: 1 }}>
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>Teilnehmer:</Typography>
+                      {termin.teilnehmer.map(tn => (
+                        <Box key={tn.username} sx={{ display: "inline-flex", alignItems: "center", mr: 2 }}>
+                          <span>{tn.username}</span>
+                          <IconButton size="small" color="error" sx={{ ml: 0.5 }}
+                            onClick={() => handleRemoveUserFromTermin(termin.id, tn.username)}>
+                            <RemoveCircle />
+                          </IconButton>
+                        </Box>
+                      ))}
+                    </Box>
+                  )}
                 </>
               }
             />
