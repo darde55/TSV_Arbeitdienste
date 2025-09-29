@@ -1,13 +1,26 @@
 import React, { useEffect, useState } from "react";
 import {
-  Paper, Typography, TextField, Button, List, ListItem, ListItemText, Box, Alert,
-  Divider, IconButton, Select, MenuItem, FormControl, InputLabel
+  Paper,
+  Typography,
+  TextField,
+  Button,
+  List,
+  ListItem,
+  ListItemText,
+  Box,
+  Alert,
+  Divider,
+  IconButton,
+  FormControlLabel,
+  Checkbox
 } from "@mui/material";
-import { TimePicker } from '@mui/x-date-pickers/TimePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { TimePicker } from "@mui/x-date-pickers/TimePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { de } from "date-fns/locale";
-import { Delete, Edit, RemoveCircle } from "@mui/icons-material";
+import DeleteIcon from "@mui/icons-material/Delete";
+import EditIcon from "@mui/icons-material/Edit";
+import RemoveCircleIcon from "@mui/icons-material/RemoveCircle";
 import api from "../api/api";
 
 type Termin = {
@@ -22,7 +35,8 @@ type Termin = {
   ansprechpartner_name?: string;
   ansprechpartner_mail?: string;
   score?: number;
-  stichtag_mail_gesendet?: boolean;
+  stichtagsmail_senden?: boolean;
+  zufallsauswahl?: boolean;
   teilnehmer?: { username: string }[];
 };
 
@@ -44,17 +58,22 @@ const initialTerminState: Omit<Termin, "id" | "teilnehmer"> = {
   ansprechpartner_name: "",
   ansprechpartner_mail: "",
   score: 0,
-  stichtag_mail_gesendet: false,
+  stichtagsmail_senden: false,
+  zufallsauswahl: false,
 };
 
 const TermineAdmin: React.FC = () => {
   const [termine, setTermine] = useState<Termin[]>([]);
   const [form, setForm] = useState<Omit<Termin, "id" | "teilnehmer">>(initialTerminState);
   const [editTermin, setEditTermin] = useState<Termin | null>(null);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState<string>("");
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<string>("");
-  const [error, setError] = useState<string>("");
+
+  useEffect(() => {
+    fetchTermine();
+    fetchUsers();
+  }, []);
 
   const fetchTermine = async () => {
     try {
@@ -62,8 +81,8 @@ const TermineAdmin: React.FC = () => {
       setTermine(res.data);
     } catch (err) {
       setTermine([]);
-      setError("Fehler beim Laden der Termine.");
-      console.error("Termine-Fehler:", err);
+      setMessage("Fehler beim Laden der Termine.");
+      if (err) console.error(err);
     }
   };
 
@@ -73,15 +92,10 @@ const TermineAdmin: React.FC = () => {
       setUsers(res.data);
     } catch (err) {
       setUsers([]);
-      setError("Fehler beim Laden der User.");
-      console.error("User-Fehler:", err);
+      setMessage("Fehler beim Laden der User.");
+      if (err) console.error(err);
     }
   };
-
-  useEffect(() => {
-    fetchTermine();
-    fetchUsers();
-  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type } = e.target;
@@ -92,13 +106,13 @@ const TermineAdmin: React.FC = () => {
   };
 
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, checked } = e.target;
     setForm(prev => ({
       ...prev,
-      stichtag_mail_gesendet: e.target.checked
+      [name]: checked
     }));
   };
 
-  // Hilfsfunktionen für TimePicker
   const parseTime = (value?: string): Date | null => {
     if (!value) return null;
     const [hour, minute] = value.split(":");
@@ -109,6 +123,7 @@ const TermineAdmin: React.FC = () => {
     d.setMilliseconds(0);
     return d;
   };
+
   const formatTime = (date: Date | null): string => {
     if (!date) return "";
     const h = date.getHours().toString().padStart(2, "0");
@@ -124,7 +139,7 @@ const TermineAdmin: React.FC = () => {
       fetchTermine();
     } catch (err) {
       setMessage("Fehler beim Anlegen!");
-      console.error("Anlegen-Fehler:", err);
+      if (err) console.error(err);
     }
   };
 
@@ -139,7 +154,9 @@ const TermineAdmin: React.FC = () => {
       ansprechpartner_name: termin.ansprechpartner_name ?? "",
       ansprechpartner_mail: termin.ansprechpartner_mail ?? "",
       score: termin.score ?? 0,
-      stichtag_mail_gesendet: termin.stichtag_mail_gesendet ?? false,
+      stichtagsmail_senden: termin.stichtagsmail_senden ?? false,
+      zufallsauswahl: termin.zufallsauswahl ?? false,
+      anzahl: termin.anzahl ?? undefined
     });
   };
 
@@ -153,7 +170,7 @@ const TermineAdmin: React.FC = () => {
       fetchTermine();
     } catch (err) {
       setMessage("Fehler beim Bearbeiten!");
-      console.error("Bearbeiten-Fehler:", err);
+      if (err) console.error(err);
     }
   };
 
@@ -164,11 +181,10 @@ const TermineAdmin: React.FC = () => {
       fetchTermine();
     } catch (err) {
       setMessage("Fehler beim Löschen!");
-      console.error("Löschen-Fehler:", err);
+      if (err) console.error(err);
     }
   };
 
-  // Admin kann User zu Termin hinzufügen
   const handleAddUserToTermin = async () => {
     if (!editTermin || !selectedUser) return;
     try {
@@ -178,11 +194,10 @@ const TermineAdmin: React.FC = () => {
       fetchTermine();
     } catch (err) {
       setMessage("Fehler beim Hinzufügen des Users zum Termin!");
-      console.error("User-zuweisen-Fehler:", err);
+      if (err) console.error(err);
     }
   };
 
-  // Admin kann User von Termin entfernen
   const handleRemoveUserFromTermin = async (terminId: number, username: string) => {
     try {
       await api.delete(`/termine/${terminId}/teilnehmer/${username}`);
@@ -190,16 +205,15 @@ const TermineAdmin: React.FC = () => {
       fetchTermine();
     } catch (err) {
       setMessage("Fehler beim Entfernen des Users vom Termin!");
-      console.error("User-entfernen-Fehler:", err);
+      if (err) console.error(err);
     }
   };
 
   return (
     <Paper sx={{ p: 3 }}>
       <Typography variant="h6" mb={2}>Terminverwaltung</Typography>
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {/* Abschnitt 2: Neuen Termin anlegen */}
-      <Typography mb={1}>Neuen Termin anlegen:</Typography>
+      {message && <Alert severity={message.includes("Fehler") ? "error" : "success"} sx={{ mb: 2 }}>{message}</Alert>}
+      <Typography mb={1}>{editTermin ? "Termin bearbeiten:" : "Neuen Termin anlegen:"}</Typography>
       <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={de}>
         <Box mb={2} display="flex" flexWrap="wrap" gap={1}>
           <TextField label="Titel" name="titel" value={form.titel} onChange={handleChange} size="small" />
@@ -208,7 +222,7 @@ const TermineAdmin: React.FC = () => {
           <TimePicker
             label="Beginn"
             value={parseTime(form.beginn)}
-            onChange={(value) => setForm(prev => ({
+            onChange={value => setForm(prev => ({
               ...prev,
               beginn: formatTime(value as Date)
             }))}
@@ -220,7 +234,7 @@ const TermineAdmin: React.FC = () => {
           <TimePicker
             label="Ende"
             value={parseTime(form.ende)}
-            onChange={(value) => setForm(prev => ({
+            onChange={value => setForm(prev => ({
               ...prev,
               ende: formatTime(value as Date)
             }))}
@@ -234,42 +248,52 @@ const TermineAdmin: React.FC = () => {
           <TextField label="Ansprechpartner Name" name="ansprechpartner_name" value={form.ansprechpartner_name} onChange={handleChange} size="small" />
           <TextField label="Ansprechpartner Mail" name="ansprechpartner_mail" value={form.ansprechpartner_mail} onChange={handleChange} size="small" />
           <TextField label="Score" name="score" type="number" value={form.score ?? ""} onChange={handleChange} size="small" />
-          <label>
-            <input
-              type="checkbox"
-              checked={!!form.stichtag_mail_gesendet}
-              onChange={handleCheckboxChange}
-            />
-            Stichtag-Mail gesendet
-          </label>
+          <FormControlLabel
+            control={
+              <Checkbox
+                name="stichtagsmail_senden"
+                checked={!!form.stichtagsmail_senden}
+                onChange={handleCheckboxChange}
+              />
+            }
+            label="Stichtagsmail senden"
+          />
+          <FormControlLabel
+            control={
+              <Checkbox
+                name="zufallsauswahl"
+                checked={!!form.zufallsauswahl}
+                onChange={handleCheckboxChange}
+              />
+            }
+            label="Zufallsauswahl aktivieren"
+          />
           {!editTermin ? (
             <Button variant="contained" onClick={handleCreate}>Anlegen</Button>
           ) : (
-            <Button variant="contained" color="secondary" onClick={handleUpdate}>Speichern</Button>
-          )}
-          {editTermin && (
-            <Button variant="outlined" color="error" onClick={() => {setEditTermin(null); setForm(initialTerminState);}}>Abbrechen</Button>
+            <>
+              <Button variant="contained" color="secondary" onClick={handleUpdate}>Speichern</Button>
+              <Button variant="outlined" color="error" onClick={() => { setEditTermin(null); setForm(initialTerminState); }}>Abbrechen</Button>
+            </>
           )}
         </Box>
       </LocalizationProvider>
       <Divider sx={{ my: 2 }} />
-      {/* Abschnitt 3: Termine bearbeiten/löschen + User zuweisen */}
-      <Typography mb={1}>Vorhandene Termine bearbeiten/löschen:</Typography>
-      {message && <Alert severity={message.includes("Fehler") ? "error" : "success"} sx={{mb:1}}>{message}</Alert>}
+      <Typography mb={1}>Vorhandene Termine:</Typography>
       <List>
         {termine.map(termin => (
           <ListItem key={termin.id}
             secondaryAction={
               <>
                 <IconButton edge="end" aria-label="edit" onClick={() => handleEdit(termin)}>
-                  <Edit />
+                  <EditIcon />
                 </IconButton>
                 <IconButton edge="end" aria-label="delete" onClick={() => handleDelete(termin.id)}>
-                  <Delete />
+                  <DeleteIcon />
                 </IconButton>
               </>
             }>
-            <ListItemText 
+            <ListItemText
               primary={`${termin.titel} (${termin.datum})`}
               secondary={
                 <>
@@ -281,7 +305,8 @@ const TermineAdmin: React.FC = () => {
                   {termin.ansprechpartner_name && <span>Ansprechpartner: {termin.ansprechpartner_name} | </span>}
                   {termin.ansprechpartner_mail && <span>Email: {termin.ansprechpartner_mail} | </span>}
                   {typeof termin.score === "number" && <span>Score: {termin.score} | </span>}
-                  {typeof termin.stichtag_mail_gesendet !== "undefined" && <span>Mail gesendet: {termin.stichtag_mail_gesendet ? "Ja" : "Nein"}</span>}
+                  {typeof termin.stichtagsmail_senden !== "undefined" && <span>Stichtagsmail: {termin.stichtagsmail_senden ? "Ja" : "Nein"} | </span>}
+                  {typeof termin.zufallsauswahl !== "undefined" && <span>Zufallsauswahl: {termin.zufallsauswahl ? "Ja" : "Nein"} | </span>}
                   {/* Teilnehmer anzeigen und entfernen */}
                   {termin.teilnehmer && termin.teilnehmer.length > 0 && (
                     <Box sx={{ display: "block", mt: 1 }}>
@@ -291,7 +316,7 @@ const TermineAdmin: React.FC = () => {
                           <span>{tn.username}</span>
                           <IconButton size="small" color="error" sx={{ ml: 0.5 }}
                             onClick={() => handleRemoveUserFromTermin(termin.id, tn.username)}>
-                            <RemoveCircle />
+                            <RemoveCircleIcon />
                           </IconButton>
                         </Box>
                       ))}
@@ -300,23 +325,24 @@ const TermineAdmin: React.FC = () => {
                 </>
               }
             />
-            {/* User zu Termin hinzufügen */}
             {editTermin && editTermin.id === termin.id && (
               <Box sx={{ mt: 1 }}>
-                <FormControl sx={{ minWidth: 120 }}>
-                  <InputLabel id="user-select-label">User hinzufügen</InputLabel>
-                  <Select
-                    labelId="user-select-label"
-                    value={selectedUser}
-                    label="User hinzufügen"
-                    onChange={e => setSelectedUser(e.target.value)}
-                  >
-                    {users.map(u => (
-                      <MenuItem key={u.username} value={u.username}>{u.username}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <Button variant="outlined" sx={{ ml: 1 }} onClick={handleAddUserToTermin}>Hinzufügen</Button>
+                <Typography variant="body2">User zu diesem Termin hinzufügen:</Typography>
+                <TextField
+                  select
+                  label="User"
+                  value={selectedUser}
+                  onChange={e => setSelectedUser(e.target.value)}
+                  size="small"
+                  sx={{ minWidth: 120, mr: 1 }}
+                  SelectProps={{ native: true }}
+                >
+                  <option value="">Bitte wählen</option>
+                  {users.map(u => (
+                    <option key={u.username} value={u.username}>{u.username}</option>
+                  ))}
+                </TextField>
+                <Button variant="outlined" onClick={handleAddUserToTermin}>Hinzufügen</Button>
               </Box>
             )}
           </ListItem>
