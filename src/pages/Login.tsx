@@ -32,11 +32,9 @@ const Login: React.FC = () => {
 
       localStorage.setItem("token", res.data.token);
 
-      // Hole zusätzliche Userdaten aus /api/profile
+      // Hole zusätzliche Userdaten aus /profile (NICHT /api/profile!)
       try {
-        const profileRes = await api.get("/api/profile", {
-          headers: { Authorization: `Bearer ${res.data.token}` },
-        });
+        const profileRes = await api.get("/profile");
 
         setUser({
           username: res.data.username,
