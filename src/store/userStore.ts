@@ -1,16 +1,17 @@
 import { create } from "zustand";
-import axios from "axios";
+import api from "../api/api";
 
 interface UserType {
   username: string;
   email: string;
   role: "admin" | "user";
   score: number;
-  token: string; // Nur lokal, nicht vom API!
+  token: string; // lokal, nicht vom API!
 }
 
 interface UserStore {
   user: UserType | null;
+  isLoading: boolean;
   setUser: (user: UserType | null) => void;
   logout: () => void;
   fetchUser: () => Promise<void>;
@@ -18,6 +19,7 @@ interface UserStore {
 
 export const useUserStore = create<UserStore>((set) => ({
   user: null,
+  isLoading: true,
   setUser: (user) => {
     if (user) {
       localStorage.setItem("token", user.token);
@@ -31,17 +33,18 @@ export const useUserStore = create<UserStore>((set) => ({
     set({ user: null });
   },
   fetchUser: async () => {
+    set({ isLoading: true });
     const token = localStorage.getItem("token");
-    if (!token) return set({ user: null });
+    if (!token) {
+      set({ user: null, isLoading: false });
+      return;
+    }
     try {
-      const res = await axios.get("/api/profile", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      // Mische die Daten aus dem Backend mit dem Token aus LocalStorage
-      set({ user: { ...res.data, token } });
+      const res = await api.get("/profile");
+      set({ user: { ...res.data, token }, isLoading: false });
     } catch {
       localStorage.removeItem("token");
-      set({ user: null });
+      set({ user: null, isLoading: false });
     }
   },
 }));

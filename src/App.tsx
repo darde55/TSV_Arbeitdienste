@@ -6,13 +6,23 @@ import Login from "./pages/Login";
 import Profile from "./pages/Profile";
 import Admin from "./pages/Admin";
 import { useUserStore } from "./store/userStore";
+import { CircularProgress, Box } from "@mui/material";
 
 const App: React.FC = () => {
-  const { user, fetchUser } = useUserStore();
+  const { user, fetchUser, isLoading } = useUserStore();
 
   useEffect(() => {
     fetchUser();
-  }, [fetchUser]); // <--- Dependency hinzugefügt
+    // eslint-disable-next-line
+  }, []);
+
+  if (isLoading) {
+    return (
+      <Box sx={{ mt: 10, textAlign: "center" }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <>
