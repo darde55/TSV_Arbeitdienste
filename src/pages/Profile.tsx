@@ -22,8 +22,8 @@ const Profile: React.FC = () => {
         return;
       }
       try {
-        // Sende den Token IMMER mit!
-        const res = await api.get<UserProfileType>("/api/profile", {
+        // KORREKTER Pfad: /profile (NICHT /api/profile!)
+        const res = await api.get<UserProfileType>("/profile", {
           headers: { Authorization: `Bearer ${token}` },
         });
         setProfile(res.data);
