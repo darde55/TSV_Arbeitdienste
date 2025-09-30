@@ -58,6 +58,7 @@ const Dashboard: React.FC = () => {
   const [snackOpen, setSnackOpen] = useState(false);
   const [tokenError, setTokenError] = useState<string>("");
 
+  // Hilfsfunktionen für Datum und Uhrzeit
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return "";
     const d = new Date(dateStr);
@@ -72,6 +73,7 @@ const Dashboard: React.FC = () => {
     return `${h.padStart(2, "0")}:${m.padStart(2, "0")}`;
   };
 
+  // API-Daten laden
   const fetchAllData = async () => {
     if (!localStorage.getItem("token")) {
       setTokenError("Du bist nicht eingeloggt. Bitte melde dich zuerst an.");
@@ -105,32 +107,31 @@ const Dashboard: React.FC = () => {
     fetchAllData();
   }, []);
 
-  // Kalender-Events
+  // KORREKTES MAPPING für Kalender-Events
   const calendarEvents: CalendarEvent[] = useMemo(() =>
-    termine.map(t => ({
-      title: t.titel,
-      start: t.beginn
-        ? new Date(`${t.datum}T${t.beginn}`)
-        : new Date(t.datum),
-      end: t.ende
-        ? new Date(`${t.datum}T${t.ende}`)
-        : (t.beginn
-            ? new Date(`${t.datum}T${t.beginn}`)
-            : new Date(t.datum)),
-      allDay: !t.beginn,
-      resource: t,
-    })), [termine]
+    termine.map(t => {
+      // Datum ohne Zeitanteil extrahieren (z.B. "2025-10-02" aus "2025-10-02T00:00:00.000Z")
+      const dateOnly = t.datum.slice(0, 10);
+      // Fallback für Uhrzeit falls Format nicht stimmt
+      const beginn = t.beginn && /^\d{2}:\d{2}$/.test(t.beginn) ? t.beginn : "09:00";
+      const ende = t.ende && /^\d{2}:\d{2}$/.test(t.ende) ? t.ende : "10:00";
+      return {
+        title: t.titel,
+        start: new Date(`${dateOnly}T${beginn}`), // z.B. "2025-10-02T05:29"
+        end: new Date(`${dateOnly}T${ende}`),     // z.B. "2025-10-02T16:30"
+        allDay: false,
+        resource: t,
+      };
+    }), [termine]
   );
 
-  // Eigene Termin-IDs
+  // Eigene Termin-IDs für Markierungen
   const userTerminIds = useMemo(() => new Set(userTermine.map(t => t.id)), [userTermine]);
 
-  // Kalender-Event-Styles
+  // Event-Farben im Kalender
   const eventPropGetter = (event: CalendarEvent) => {
     const isUserAngemeldet = userTerminIds.has(event.resource.id);
-    // FEHLERFREI:
     const isPast = event.end ? event.end < new Date() : false;
-
     const style: React.CSSProperties = {
       backgroundColor: "#1976d2",
       color: "white",
@@ -153,15 +154,15 @@ const Dashboard: React.FC = () => {
   // Nächster Termin
   const nextTermin = useMemo(() =>
     termine
-      .filter(t => new Date(t.datum) >= new Date())
-      .sort((a, b) => new Date(a.datum).getTime() - new Date(b.datum).getTime())[0], [termine]
+      .filter(t => new Date(t.datum.slice(0, 10)) >= new Date())
+      .sort((a, b) => new Date(a.datum.slice(0, 10)).getTime() - new Date(b.datum.slice(0, 10)).getTime())[0], [termine]
   );
 
-  // Weitere Termine
+  // Weitere Termine (außer nächster)
   const weitereTermine = useMemo(() =>
     termine
-      .filter(t => t.id !== nextTermin?.id && new Date(t.datum) >= new Date())
-      .sort((a, b) => new Date(a.datum).getTime() - new Date(b.datum).getTime()), [termine, nextTermin]
+      .filter(t => t.id !== nextTermin?.id && new Date(t.datum.slice(0, 10)) >= new Date())
+      .sort((a, b) => new Date(a.datum.slice(0, 10)).getTime() - new Date(b.datum.slice(0, 10)).getTime()), [termine, nextTermin]
   );
 
   // Admins aus Score-Tabelle herausfiltern
