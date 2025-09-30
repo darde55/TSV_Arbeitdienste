@@ -254,43 +254,55 @@ const Dashboard: React.FC = () => {
         <Paper key={t.id} sx={{ p: 2, mb: 2, boxShadow: 3, borderRadius: 2 }}>
           <Accordion>
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Box sx={{ width: "100%" }}>
-                <Typography variant="h6">{t.titel}</Typography>
-                <Typography>
-                  {formatDate(t.datum)}
-                  {t.beginn && ` | ${formatTime(t.beginn)} Uhr`}
-                  {t.ende && ` - ${formatTime(t.ende)} Uhr`}
-                </Typography>
-                {t.anzahl &&
-                  <Typography sx={{ color: "text.secondary" }}>
-                    Offene Plätze: {offenePlaetze(t)} / {t.anzahl}
+              <Box sx={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <Box>
+                  <Typography variant="h6">{t.titel}</Typography>
+                  <Typography>
+                    {formatDate(t.datum)}
+                    {t.beginn && ` | ${formatTime(t.beginn)} Uhr`}
+                    {t.ende && ` - ${formatTime(t.ende)} Uhr`}
                   </Typography>
-                }
+                  {t.anzahl &&
+                    <Typography sx={{ color: "text.secondary" }}>
+                      Offene Plätze: {offenePlaetze(t)} / {t.anzahl}
+                    </Typography>
+                  }
+                </Box>
+                <Box>
+                  {!userTerminIds.has(t.id) &&
+                    <Button
+                      variant="contained"
+                      color="error"
+                      size="large"
+                      sx={{
+                        borderRadius: 3,
+                        fontWeight: 700,
+                        textTransform: "none",
+                        minWidth: 100,
+                        height: 56
+                      }}
+                      disabled={loading || !!tokenError}
+                      onClick={e => {
+                        e.stopPropagation();
+                        handleAnmelden(t.id);
+                      }}
+                    >
+                      ANMELDEN
+                    </Button>
+                  }
+                  {userTerminIds.has(t.id) &&
+                    <Typography sx={{ ml: 2, color: "success.main", fontWeight: 700 }}>
+                      Du bist angemeldet!
+                    </Typography>
+                  }
+                </Box>
               </Box>
-              {!userTerminIds.has(t.id) &&
-                <Button
-                  variant="contained"
-                  color="primary"
-                  size="small"
-                  sx={{ ml: 2 }}
-                  disabled={loading || !!tokenError}
-                  onClick={e => {
-                    e.stopPropagation();
-                    handleAnmelden(t.id);
-                  }}
-                >
-                  Anmelden
-                </Button>
-              }
-              {userTerminIds.has(t.id) &&
-                <Typography sx={{ ml: 2, color: "success.main", fontWeight: 700 }}>
-                  Du bist angemeldet!
-                </Typography>
-              }
             </AccordionSummary>
             <AccordionDetails>
-              <Typography>Stichtag: {formatDate(t.stichtag)}</Typography>
-              <Typography>Ansprechpartner: {t.ansprechpartner_name || "-"} {t.ansprechpartner_mail && `(${t.ansprechpartner_mail})`}</Typography>
+              <Typography sx={{ mb: 1 }}>Stichtag: {formatDate(t.stichtag)}</Typography>
+              <Typography sx={{ mb: 1 }}>Ansprechpartner: {t.ansprechpartner_name || "-"} {t.ansprechpartner_mail && `(${t.ansprechpartner_mail})`}</Typography>
+              <Typography sx={{ mb: 1 }}>Beschreibung: {t.beschreibung || "-"}</Typography>
+              {/* Weitere Felder können hier ergänzt werden */}
             </AccordionDetails>
           </Accordion>
         </Paper>
