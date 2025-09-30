@@ -197,6 +197,16 @@ const Dashboard: React.FC = () => {
     return max > 0 ? Math.max(0, max - teilnehmer) : "-";
   }
 
+  // Accordion-Logik: Nur der nächste Termin ist offen, alle anderen zugeklappt
+  const nextTerminId = alleSichtbarenTermine.length > 0 ? alleSichtbarenTermine[0].id : null;
+  const [openAccordionId, setOpenAccordionId] = useState<number | null>(nextTerminId);
+
+  useEffect(() => {
+    // Wenn sich die Terminliste ändert, immer den nächsten Termin öffnen
+    setOpenAccordionId(nextTerminId);
+    
+  }, [nextTerminId]);
+
   const handleAnmelden = async (terminId: number) => {
     setLoading(true);
     try {
@@ -252,7 +262,10 @@ const Dashboard: React.FC = () => {
 
       {alleSichtbarenTermine.map((t) => (
         <Paper key={t.id} sx={{ p: 2, mb: 2, boxShadow: 3, borderRadius: 2 }}>
-          <Accordion>
+          <Accordion
+            expanded={openAccordionId === t.id}
+            onChange={(_, isExpanded) => setOpenAccordionId(isExpanded ? t.id : null)}
+          >
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
               <Box sx={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <Box>
