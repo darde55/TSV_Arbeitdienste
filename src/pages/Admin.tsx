@@ -2,6 +2,7 @@ import React from "react";
 import { Container, Typography, Paper, Box, Divider } from "@mui/material";
 import UserAdmin from "../components/UserAdmin";
 import TermineAdmin from "../components/TermineAdmin";
+import TerminArchiv from "../components/TerminArchiv";
 
 const Admin: React.FC = () => (
   <Container sx={{ mt: 4 }}>
@@ -15,8 +16,12 @@ const Admin: React.FC = () => (
         <UserAdmin />
       </Box>
       <Divider sx={{ mb: 3 }} />
-      <Box>
+      <Box mb={4}>
         <TermineAdmin />
+      </Box>
+      <Divider sx={{ mb: 3 }} />
+      <Box>
+        <TerminArchiv />
       </Box>
     </Paper>
   </Container>

@@ -109,20 +109,28 @@ const Dashboard: React.FC = () => {
 
   // KORREKTES MAPPING für Kalender-Events
   const calendarEvents: CalendarEvent[] = useMemo(() =>
-    termine.map(t => {
-      // Datum ohne Zeitanteil extrahieren (z.B. "2025-10-02" aus "2025-10-02T00:00:00.000Z")
-      const dateOnly = t.datum.slice(0, 10);
-      // Fallback für Uhrzeit falls Format nicht stimmt
-      const beginn = t.beginn && /^\d{2}:\d{2}$/.test(t.beginn) ? t.beginn : "09:00";
-      const ende = t.ende && /^\d{2}:\d{2}$/.test(t.ende) ? t.ende : "10:00";
-      return {
-        title: t.titel,
-        start: new Date(`${dateOnly}T${beginn}`), // z.B. "2025-10-02T05:29"
-        end: new Date(`${dateOnly}T${ende}`),     // z.B. "2025-10-02T16:30"
-        allDay: false,
-        resource: t,
-      };
-    }), [termine]
+    termine
+      // Nur zukünftige Termine für Kalender
+      .filter(t => {
+        const dateOnly = t.datum.slice(0, 10);
+        const ende = t.ende && /^\d{2}:\d{2}$/.test(t.ende) ? t.ende : "10:00";
+        const endDate = new Date(`${dateOnly}T${ende}`);
+        return endDate >= new Date();
+      })
+      .map(t => {
+        // Datum ohne Zeitanteil extrahieren (z.B. "2025-10-02" aus "2025-10-02T00:00:00.000Z")
+        const dateOnly = t.datum.slice(0, 10);
+        // Fallback für Uhrzeit falls Format nicht stimmt
+        const beginn = t.beginn && /^\d{2}:\d{2}$/.test(t.beginn) ? t.beginn : "09:00";
+        const ende = t.ende && /^\d{2}:\d{2}$/.test(t.ende) ? t.ende : "10:00";
+        return {
+          title: t.titel,
+          start: new Date(`${dateOnly}T${beginn}`), // z.B. "2025-10-02T05:29"
+          end: new Date(`${dateOnly}T${ende}`),     // z.B. "2025-10-02T16:30"
+          allDay: false,
+          resource: t,
+        };
+      }), [termine]
   );
 
   // Eigene Termin-IDs für Markierungen
@@ -151,18 +159,32 @@ const Dashboard: React.FC = () => {
     return { style };
   };
 
-  // Nächster Termin
-  const nextTermin = useMemo(() =>
+  // Nur zukünftige Termine für Accordion-Liste
+  const alleSichtbarenTermine = useMemo(() =>
     termine
-      .filter(t => new Date(t.datum.slice(0, 10)) >= new Date())
-      .sort((a, b) => new Date(a.datum.slice(0, 10)).getTime() - new Date(b.datum.slice(0, 10)).getTime())[0], [termine]
+      .filter(t => {
+        const dateOnly = t.datum.slice(0, 10);
+        const ende = t.ende && /^\d{2}:\d{2}$/.test(t.ende) ? t.ende : "10:00";
+        const endDate = new Date(`${dateOnly}T${ende}`);
+        return endDate >= new Date();
+      })
+      .sort((a, b) => {
+        const dateA = new Date(a.datum.slice(0, 10));
+        const dateB = new Date(b.datum.slice(0, 10));
+        return dateA.getTime() - dateB.getTime();
+      }),
+    [termine]
   );
 
-  // Weitere Termine (außer nächster)
-  const weitereTermine = useMemo(() =>
-    termine
-      .filter(t => t.id !== nextTermin?.id && new Date(t.datum.slice(0, 10)) >= new Date())
-      .sort((a, b) => new Date(a.datum.slice(0, 10)).getTime() - new Date(b.datum.slice(0, 10)).getTime()), [termine, nextTermin]
+  // Nur zukünftige "Meine Termine"
+  const meineZukuenftigeTermine = useMemo(() =>
+    userTermine.filter(t => {
+      const dateOnly = t.datum.slice(0, 10);
+      const ende = t.ende && /^\d{2}:\d{2}$/.test(t.ende) ? t.ende : "10:00";
+      const endDate = new Date(`${dateOnly}T${ende}`);
+      return endDate >= new Date();
+    }),
+    [userTermine]
   );
 
   // Admins aus Score-Tabelle herausfiltern
@@ -195,8 +217,6 @@ const Dashboard: React.FC = () => {
     }
     setLoading(false);
   };
-
-  const alleSichtbarenTermine = [nextTermin, ...weitereTermine].filter(Boolean);
 
   return (
     <Box sx={{ maxWidth: 1000, mx: "auto", mt: 3, mb: 4 }}>
@@ -278,8 +298,8 @@ const Dashboard: React.FC = () => {
 
       <Paper sx={{ p: 2, mb: 2 }}>
         <Typography variant="h6">Meine Termine</Typography>
-        {userTermine.length === 0 && <Typography>Du bist aktuell für keine Termine angemeldet.</Typography>}
-        {userTermine.map(t => (
+        {meineZukuenftigeTermine.length === 0 && <Typography>Du bist aktuell für keine zukünftigen Termine angemeldet.</Typography>}
+        {meineZukuenftigeTermine.map(t => (
           <Accordion key={t.id}>
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
               <Typography>

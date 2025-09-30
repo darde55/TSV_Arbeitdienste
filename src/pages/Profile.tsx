@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { Paper, Typography, Box, Chip, Alert } from "@mui/material";
+import {
+  Paper, Typography, Box, Chip, Alert, Button, Dialog, DialogTitle,
+  DialogContent, DialogActions, TextField, CircularProgress
+} from "@mui/material";
 import api from "../api/api";
 import axios from "axios";
 
@@ -13,6 +16,13 @@ interface UserProfileType {
 const Profile: React.FC = () => {
   const [profile, setProfile] = useState<UserProfileType | null>(null);
   const [error, setError] = useState<string>("");
+  const [pwDialogOpen, setPwDialogOpen] = useState(false);
+  const [oldPw, setOldPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [newPwConfirm, setNewPwConfirm] = useState("");
+  const [pwError, setPwError] = useState<string>("");
+  const [pwSuccess, setPwSuccess] = useState<string>("");
+  const [pwLoading, setPwLoading] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -22,7 +32,6 @@ const Profile: React.FC = () => {
         return;
       }
       try {
-        // KORREKTER Pfad: /profile (NICHT /api/profile!)
         const res = await api.get<UserProfileType>("/profile", {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -41,6 +50,44 @@ const Profile: React.FC = () => {
     };
     fetchProfile();
   }, []);
+
+  const handlePwChange = async () => {
+    setPwError("");
+    setPwSuccess("");
+    if (!oldPw || !newPw || !newPwConfirm) {
+      setPwError("Bitte fülle alle Felder aus.");
+      return;
+    }
+    if (newPw !== newPwConfirm) {
+      setPwError("Die neuen Passwörter stimmen nicht überein.");
+      return;
+    }
+    setPwLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      await api.post("/profile/password", {
+        oldPassword: oldPw,
+        newPassword: newPw,
+      }, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setPwSuccess("Passwort erfolgreich geändert!");
+      setOldPw("");
+      setNewPw("");
+      setNewPwConfirm("");
+      setPwDialogOpen(false);
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        setPwError(
+          err.response?.data?.message ||
+          "Fehler beim Ändern des Passworts. Überprüfe dein altes Passwort."
+        );
+      } else {
+        setPwError("Unbekannter Fehler beim Passwortwechsel.");
+      }
+    }
+    setPwLoading(false);
+  };
 
   if (error) {
     return (
@@ -75,7 +122,70 @@ const Profile: React.FC = () => {
         <Typography sx={{ mt: 1 }}>
           <b>Score:</b> {profile.score}
         </Typography>
+
+        <Button
+          sx={{ mt: 3 }}
+          variant="outlined"
+          onClick={() => setPwDialogOpen(true)}
+        >
+          Passwort ändern
+        </Button>
+
+        {pwSuccess && (
+          <Alert severity="success" sx={{ mt: 2 }}>{pwSuccess}</Alert>
+        )}
       </Paper>
+
+      <Dialog open={pwDialogOpen} onClose={() => setPwDialogOpen(false)}>
+        <DialogTitle>Passwort ändern</DialogTitle>
+        <DialogContent sx={{ minWidth: 300 }}>
+          <TextField
+            label="Altes Passwort"
+            type="password"
+            fullWidth
+            margin="normal"
+            value={oldPw}
+            onChange={e => setOldPw(e.target.value)}
+            autoComplete="current-password"
+          />
+          <TextField
+            label="Neues Passwort"
+            type="password"
+            fullWidth
+            margin="normal"
+            value={newPw}
+            onChange={e => setNewPw(e.target.value)}
+            autoComplete="new-password"
+          />
+          <TextField
+            label="Neues Passwort wiederholen"
+            type="password"
+            fullWidth
+            margin="normal"
+            value={newPwConfirm}
+            onChange={e => setNewPwConfirm(e.target.value)}
+            autoComplete="new-password"
+          />
+          {pwError && (
+            <Alert severity="error" sx={{ mt: 1 }}>
+              {pwError}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPwDialogOpen(false)}>
+            Abbrechen
+          </Button>
+          <Button
+            onClick={handlePwChange}
+            disabled={pwLoading}
+            variant="contained"
+            color="primary"
+          >
+            {pwLoading ? <CircularProgress size={20} /> : "Speichern"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
