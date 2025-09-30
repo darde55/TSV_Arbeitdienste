@@ -6,12 +6,14 @@ import {
 } from "@mui/material";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
+import type { Event as RBCEvent } from "react-big-calendar";
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import { de } from "date-fns/locale";
 import api from "../api/api";
 import axios from "axios";
 
+// Kalender-Lokalisierung
 const locales = { 'de': de };
 const localizer = dateFnsLocalizer({
   format,
@@ -21,6 +23,7 @@ const localizer = dateFnsLocalizer({
   locales,
 });
 
+// Typdefinitionen
 type Termin = {
   id: number;
   titel: string;
@@ -43,6 +46,10 @@ type User = {
   score: number;
 };
 
+type CalendarEvent = RBCEvent & {
+  resource: Termin;
+};
+
 const Dashboard: React.FC = () => {
   const [termine, setTermine] = useState<Termin[]>([]);
   const [userTermine, setUserTermine] = useState<Termin[]>([]);
@@ -57,6 +64,7 @@ const Dashboard: React.FC = () => {
     if (isNaN(d.getTime())) return dateStr;
     return d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
   };
+
   const formatTime = (time?: string) => {
     if (!time) return "";
     const [h, m] = time.split(":");
@@ -97,27 +105,34 @@ const Dashboard: React.FC = () => {
     fetchAllData();
   }, []);
 
-  // Events für Kalender
-  const calendarEvents = useMemo(() =>
+  // Kalender-Events
+  const calendarEvents: CalendarEvent[] = useMemo(() =>
     termine.map(t => ({
       title: t.titel,
-      start: new Date(`${t.datum}T${t.beginn || "00:00"}`),
-      end: new Date(`${t.datum}T${t.ende || t.beginn || "23:59"}`),
+      start: t.beginn
+        ? new Date(`${t.datum}T${t.beginn}`)
+        : new Date(t.datum),
+      end: t.ende
+        ? new Date(`${t.datum}T${t.ende}`)
+        : (t.beginn
+            ? new Date(`${t.datum}T${t.beginn}`)
+            : new Date(t.datum)),
       allDay: !t.beginn,
       resource: t,
     })), [termine]
   );
 
-  // Eigene Termin-IDs für schnelles Lookup
+  // Eigene Termin-IDs
   const userTerminIds = useMemo(() => new Set(userTermine.map(t => t.id)), [userTermine]);
 
-  // Kalender-Event-Styles: Farbliche Markierung nach Status
-  const eventPropGetter = (event: any) => {
+  // Kalender-Event-Styles
+  const eventPropGetter = (event: CalendarEvent) => {
     const isUserAngemeldet = userTerminIds.has(event.resource.id);
-    const isPast = new Date(event.end) < new Date();
+    // FEHLERFREI:
+    const isPast = event.end ? event.end < new Date() : false;
 
-    let style = {
-      backgroundColor: "#1976d2", // Standard: blau
+    const style: React.CSSProperties = {
+      backgroundColor: "#1976d2",
       color: "white",
       borderRadius: "8px",
       border: "none",
@@ -125,10 +140,10 @@ const Dashboard: React.FC = () => {
       fontWeight: 600,
     };
     if (isUserAngemeldet) {
-      style.backgroundColor = "#2e7d32"; // Grün
+      style.backgroundColor = "#2e7d32";
     }
     if (isPast) {
-      style.backgroundColor = "#b0b0b0"; // Grau
+      style.backgroundColor = "#b0b0b0";
       style.color = "#333";
       style.opacity = 0.7;
     }
@@ -142,7 +157,7 @@ const Dashboard: React.FC = () => {
       .sort((a, b) => new Date(a.datum).getTime() - new Date(b.datum).getTime())[0], [termine]
   );
 
-  // Weitere Termine (außer nächster)
+  // Weitere Termine
   const weitereTermine = useMemo(() =>
     termine
       .filter(t => t.id !== nextTermin?.id && new Date(t.datum) >= new Date())
@@ -276,7 +291,7 @@ const Dashboard: React.FC = () => {
               <Typography>Ende: {formatTime(t.ende)}</Typography>
               <Typography>Anzahl: {t.anzahl}</Typography>
               <Typography>Stichtag: {formatDate(t.stichtag)}</Typography>
-              <Typography>Ansprechpartner: {t.ansprechpartner_name} ({t.ansprechpartner_mail})</Typography>
+              <Typography>Ansprechpartner: {t.ansprechpartner_name} {t.ansprechpartner_mail && `(${t.ansprechpartner_mail})`}</Typography>
               <Typography>Score: {t.score}</Typography>
             </AccordionDetails>
           </Accordion>
