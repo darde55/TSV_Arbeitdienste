@@ -209,6 +209,14 @@ const TermineAdmin: React.FC = () => {
     }
   };
 
+  // --- Nur aktuelle Termine anzeigen ---
+  const aktuelleTermine = termine.filter(t => {
+    const dateOnly = t.datum.slice(0, 10);
+    const ende = t.ende && /^\d{2}:\d{2}$/.test(t.ende) ? t.ende : "10:00";
+    const endDate = new Date(`${dateOnly}T${ende}`);
+    return endDate >= new Date();
+  });
+
   return (
     <Paper sx={{ p: 3 }}>
       <Typography variant="h6" mb={2}>Terminverwaltung</Typography>
@@ -281,7 +289,7 @@ const TermineAdmin: React.FC = () => {
       <Divider sx={{ my: 2 }} />
       <Typography mb={1}>Vorhandene Termine:</Typography>
       <List>
-        {termine.map(termin => (
+        {aktuelleTermine.map(termin => (
           <ListItem key={termin.id}
             secondaryAction={
               <>
