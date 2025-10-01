@@ -12,7 +12,11 @@ import {
   Divider,
   IconButton,
   FormControlLabel,
-  Checkbox
+  Checkbox,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel
 } from "@mui/material";
 import { TimePicker } from "@mui/x-date-pickers/TimePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -22,6 +26,9 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import RemoveCircleIcon from "@mui/icons-material/RemoveCircle";
 import api from "../api/api";
+import type { SelectChangeEvent } from "@mui/material/Select";
+
+type TerminKategorie = "Schiedsrichter" | "Grillen" | "Sonstiges";
 
 type Termin = {
   id: number;
@@ -38,6 +45,7 @@ type Termin = {
   stichtagsmail_senden?: boolean;
   zufallsauswahl?: boolean;
   teilnehmer?: { username: string }[];
+  kategorie?: TerminKategorie;
 };
 
 type User = {
@@ -60,7 +68,10 @@ const initialTerminState: Omit<Termin, "id" | "teilnehmer"> = {
   score: 0,
   stichtagsmail_senden: false,
   zufallsauswahl: false,
+  kategorie: "Sonstiges"
 };
+
+const kategorien: TerminKategorie[] = ["Schiedsrichter", "Grillen", "Sonstiges"];
 
 const TermineAdmin: React.FC = () => {
   const [termine, setTermine] = useState<Termin[]>([]);
@@ -113,6 +124,13 @@ const TermineAdmin: React.FC = () => {
     }));
   };
 
+  const handleKategorieChange = (e: SelectChangeEvent) => {
+    setForm(prev => ({
+      ...prev,
+      kategorie: e.target.value as TerminKategorie
+    }));
+  };
+
   const parseTime = (value?: string): Date | null => {
     if (!value) return null;
     const [hour, minute] = value.split(":");
@@ -156,7 +174,8 @@ const TermineAdmin: React.FC = () => {
       score: termin.score ?? 0,
       stichtagsmail_senden: termin.stichtagsmail_senden ?? false,
       zufallsauswahl: termin.zufallsauswahl ?? false,
-      anzahl: termin.anzahl ?? undefined
+      anzahl: termin.anzahl ?? undefined,
+      kategorie: termin.kategorie ?? "Sonstiges"
     });
   };
 
@@ -226,6 +245,20 @@ const TermineAdmin: React.FC = () => {
         <Box mb={2} display="flex" flexWrap="wrap" gap={1}>
           <TextField label="Titel" name="titel" value={form.titel} onChange={handleChange} size="small" />
           <TextField label="Beschreibung" name="beschreibung" value={form.beschreibung} onChange={handleChange} size="small" />
+          <FormControl size="small" sx={{ minWidth: 140 }}>
+            <InputLabel id="kategorie-label">Kategorie</InputLabel>
+            <Select
+              labelId="kategorie-label"
+              name="kategorie"
+              label="Kategorie"
+              value={form.kategorie ?? "Sonstiges"}
+              onChange={handleKategorieChange}
+            >
+              {kategorien.map(kat => (
+                <MenuItem key={kat} value={kat}>{kat}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
           <TextField label="Datum" name="datum" type="date" value={form.datum} onChange={handleChange} size="small" InputLabelProps={{ shrink: true }} />
           <TimePicker
             label="Beginn"
@@ -305,6 +338,7 @@ const TermineAdmin: React.FC = () => {
               primary={`${termin.titel} (${termin.datum})`}
               secondary={
                 <>
+                  <span><b>Kategorie:</b> {termin.kategorie ?? "Sonstiges"} | </span>
                   {termin.beschreibung && <span>Beschreibung: {termin.beschreibung} | </span>}
                   {termin.beginn && <span>Beginn: {termin.beginn} | </span>}
                   {termin.ende && <span>Ende: {termin.ende} | </span>}

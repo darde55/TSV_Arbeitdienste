@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import {
   Paper, Typography, Accordion, AccordionSummary, AccordionDetails,
   Table, TableBody, TableCell, TableHead, TableRow, Box, Button,
-  Avatar, TableContainer, Snackbar, Alert
+  Avatar, TableContainer, Snackbar, Alert, Chip
 } from "@mui/material";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
@@ -23,7 +23,9 @@ const localizer = dateFnsLocalizer({
   locales,
 });
 
-// Typdefinitionen
+const KATEGORIEN = ["Schiedsrichter", "Grillen", "Sonstiges"] as const;
+type TerminKategorie = typeof KATEGORIEN[number];
+
 type Termin = {
   id: number;
   titel: string;
@@ -37,6 +39,7 @@ type Termin = {
   ansprechpartner_mail?: string;
   score?: number;
   teilnehmer?: { username: string }[];
+  kategorie?: TerminKategorie;
 };
 
 type User = {
@@ -57,6 +60,13 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [snackOpen, setSnackOpen] = useState(false);
   const [tokenError, setTokenError] = useState<string>("");
+
+  // Accordion-State für Kategorie-Abschnitte
+  const [openKategorie, setOpenKategorie] = useState<Record<TerminKategorie, boolean>>({
+    Schiedsrichter: false,
+    Grillen: false,
+    Sonstiges: false
+  });
 
   // Hilfsfunktionen für Datum und Uhrzeit
   const formatDate = (dateStr?: string) => {
@@ -110,7 +120,6 @@ const Dashboard: React.FC = () => {
   // KORREKTES MAPPING für Kalender-Events
   const calendarEvents: CalendarEvent[] = useMemo(() =>
     termine
-      // Nur zukünftige Termine für Kalender
       .filter(t => {
         const dateOnly = t.datum.slice(0, 10);
         const ende = t.ende && /^\d{2}:\d{2}$/.test(t.ende) ? t.ende : "10:00";
@@ -118,15 +127,13 @@ const Dashboard: React.FC = () => {
         return endDate >= new Date();
       })
       .map(t => {
-        // Datum ohne Zeitanteil extrahieren (z.B. "2025-10-02" aus "2025-10-02T00:00:00.000Z")
         const dateOnly = t.datum.slice(0, 10);
-        // Fallback für Uhrzeit falls Format nicht stimmt
         const beginn = t.beginn && /^\d{2}:\d{2}$/.test(t.beginn) ? t.beginn : "09:00";
         const ende = t.ende && /^\d{2}:\d{2}$/.test(t.ende) ? t.ende : "10:00";
         return {
           title: t.titel,
-          start: new Date(`${dateOnly}T${beginn}`), // z.B. "2025-10-02T05:29"
-          end: new Date(`${dateOnly}T${ende}`),     // z.B. "2025-10-02T16:30"
+          start: new Date(`${dateOnly}T${beginn}`),
+          end: new Date(`${dateOnly}T${ende}`),
           allDay: false,
           resource: t,
         };
@@ -159,7 +166,7 @@ const Dashboard: React.FC = () => {
     return { style };
   };
 
-  // Nur zukünftige Termine für Accordion-Liste
+  // Nur zukünftige Termine für Listen
   const alleSichtbarenTermine = useMemo(() =>
     termine
       .filter(t => {
@@ -175,6 +182,23 @@ const Dashboard: React.FC = () => {
       }),
     [termine]
   );
+
+  // Nur den nächsten Termin
+  const naechsterTermin = alleSichtbarenTermine.length > 0 ? alleSichtbarenTermine[0] : null;
+
+  // Termine nach Katigorien (außer nächster)
+  const kategorisierteTermine = useMemo(() => {
+    const katObj: Record<TerminKategorie, Termin[]> = {
+      Schiedsrichter: [],
+      Grillen: [],
+      Sonstiges: [],
+    };
+    alleSichtbarenTermine.slice(1).forEach((t) => {
+      const kat = t.kategorie ?? "Sonstiges";
+      katObj[kat].push(t);
+    });
+    return katObj;
+  }, [alleSichtbarenTermine]);
 
   // Nur zukünftige "Meine Termine"
   const meineZukuenftigeTermine = useMemo(() =>
@@ -197,15 +221,20 @@ const Dashboard: React.FC = () => {
     return max > 0 ? Math.max(0, max - teilnehmer) : "-";
   }
 
-  // Accordion-Logik: Nur der nächste Termin ist offen, alle anderen zugeklappt
-  const nextTerminId = alleSichtbarenTermine.length > 0 ? alleSichtbarenTermine[0].id : null;
-  const [openAccordionId, setOpenAccordionId] = useState<number | null>(nextTerminId);
+  // Accordion-Logik für den nächsten Termin
+  const [openAccordionId, setOpenAccordionId] = useState<number | null>(naechsterTermin?.id ?? null);
 
   useEffect(() => {
-    // Wenn sich die Terminliste ändert, immer den nächsten Termin öffnen
-    setOpenAccordionId(nextTerminId);
-    
-  }, [nextTerminId]);
+    setOpenAccordionId(naechsterTermin?.id ?? null);
+  }, [naechsterTermin?.id]);
+
+  // Accordion-Logik für Kategorien
+  const handleKategorieAccordion = (kat: TerminKategorie) => {
+    setOpenKategorie(prev => ({
+      ...prev,
+      [kat]: !prev[kat]
+    }));
+  };
 
   const handleAnmelden = async (terminId: number) => {
     setLoading(true);
@@ -260,29 +289,32 @@ const Dashboard: React.FC = () => {
         />
       </Paper>
 
-      {alleSichtbarenTermine.map((t) => (
-        <Paper key={t.id} sx={{ p: 2, mb: 2, boxShadow: 3, borderRadius: 2 }}>
+      {/* Nächster Termin */}
+      {naechsterTermin &&
+        <Paper sx={{ p: 2, mb: 4, boxShadow: 3, borderRadius: 2 }}>
+          <Typography variant="subtitle2" sx={{ mb: 1, color: "primary.main" }}>Nächster Termin</Typography>
           <Accordion
-            expanded={openAccordionId === t.id}
-            onChange={(_, isExpanded) => setOpenAccordionId(isExpanded ? t.id : null)}
+            expanded={openAccordionId === naechsterTermin.id}
+            onChange={(_, isExpanded) => setOpenAccordionId(isExpanded ? naechsterTermin.id : null)}
           >
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
               <Box sx={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <Box>
-                  <Typography variant="h6">{t.titel}</Typography>
+                  <Typography variant="h6">{naechsterTermin.titel}</Typography>
+                  <Chip size="small" label={naechsterTermin.kategorie ?? "Sonstiges"} color="default" sx={{ mb: 0.5 }} />
                   <Typography>
-                    {formatDate(t.datum)}
-                    {t.beginn && ` | ${formatTime(t.beginn)} Uhr`}
-                    {t.ende && ` - ${formatTime(t.ende)} Uhr`}
+                    {formatDate(naechsterTermin.datum)}
+                    {naechsterTermin.beginn && ` | ${formatTime(naechsterTermin.beginn)} Uhr`}
+                    {naechsterTermin.ende && ` - ${formatTime(naechsterTermin.ende)} Uhr`}
                   </Typography>
-                  {t.anzahl &&
+                  {naechsterTermin.anzahl &&
                     <Typography sx={{ color: "text.secondary" }}>
-                      Offene Plätze: {offenePlaetze(t)} / {t.anzahl}
+                      Offene Plätze: {offenePlaetze(naechsterTermin)} / {naechsterTermin.anzahl}
                     </Typography>
                   }
                 </Box>
                 <Box>
-                  {!userTerminIds.has(t.id) &&
+                  {!userTerminIds.has(naechsterTermin.id) &&
                     <Button
                       variant="contained"
                       color="error"
@@ -297,13 +329,13 @@ const Dashboard: React.FC = () => {
                       disabled={loading || !!tokenError}
                       onClick={e => {
                         e.stopPropagation();
-                        handleAnmelden(t.id);
+                        handleAnmelden(naechsterTermin.id);
                       }}
                     >
                       ANMELDEN
                     </Button>
                   }
-                  {userTerminIds.has(t.id) &&
+                  {userTerminIds.has(naechsterTermin.id) &&
                     <Typography sx={{ ml: 2, color: "success.main", fontWeight: 700 }}>
                       Du bist angemeldet!
                     </Typography>
@@ -312,15 +344,93 @@ const Dashboard: React.FC = () => {
               </Box>
             </AccordionSummary>
             <AccordionDetails>
-              <Typography sx={{ mb: 1 }}>Stichtag: {formatDate(t.stichtag)}</Typography>
-              <Typography sx={{ mb: 1 }}>Ansprechpartner: {t.ansprechpartner_name || "-"} {t.ansprechpartner_mail && `(${t.ansprechpartner_mail})`}</Typography>
-              <Typography sx={{ mb: 1 }}>Beschreibung: {t.beschreibung || "-"}</Typography>
-              {/* Weitere Felder können hier ergänzt werden */}
+              <Typography sx={{ mb: 1 }}>Stichtag: {formatDate(naechsterTermin.stichtag)}</Typography>
+              <Typography sx={{ mb: 1 }}>Ansprechpartner: {naechsterTermin.ansprechpartner_name || "-"} {naechsterTermin.ansprechpartner_mail && `(${naechsterTermin.ansprechpartner_mail})`}</Typography>
+              <Typography sx={{ mb: 1 }}>Beschreibung: {naechsterTermin.beschreibung || "-"}</Typography>
             </AccordionDetails>
           </Accordion>
         </Paper>
-      ))}
+      }
 
+      {/* Termine nach Katigorien als Accordions */}
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Typography variant="h6" mb={2}>Termine nach Kategorie</Typography>
+        {KATEGORIEN.map(kat => (
+          <Accordion
+            key={kat}
+            expanded={openKategorie[kat]}
+            onChange={() => handleKategorieAccordion(kat)}
+            sx={{ mb: 2 }}
+          >
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography variant="subtitle2">{kat}</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              {kategorisierteTermine[kat].length === 0 &&
+                <Typography sx={{ color: "text.secondary" }}>Keine Termine in dieser Kategorie.</Typography>
+              }
+              {kategorisierteTermine[kat].map(t => (
+                <Paper key={t.id} sx={{ p: 2, mb: 2, boxShadow: 1, borderRadius: 2 }}>
+                  <Accordion>
+                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                      <Box sx={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <Box>
+                          <Typography variant="subtitle1">{t.titel}</Typography>
+                          <Typography>
+                            {formatDate(t.datum)}
+                            {t.beginn && ` | ${formatTime(t.beginn)} Uhr`}
+                            {t.ende && ` - ${formatTime(t.ende)} Uhr`}
+                          </Typography>
+                          {t.anzahl &&
+                            <Typography sx={{ color: "text.secondary" }}>
+                              Offene Plätze: {offenePlaetze(t)} / {t.anzahl}
+                            </Typography>
+                          }
+                        </Box>
+                        <Box>
+                          {!userTerminIds.has(t.id) &&
+                            <Button
+                              variant="contained"
+                              color="error"
+                              size="small"
+                              sx={{
+                                borderRadius: 3,
+                                fontWeight: 700,
+                                textTransform: "none",
+                                minWidth: 100,
+                                height: 40
+                              }}
+                              disabled={loading || !!tokenError}
+                              onClick={e => {
+                                e.stopPropagation();
+                                handleAnmelden(t.id);
+                              }}
+                            >
+                              ANMELDEN
+                            </Button>
+                          }
+                          {userTerminIds.has(t.id) &&
+                            <Typography sx={{ ml: 2, color: "success.main", fontWeight: 700 }}>
+                              Du bist angemeldet!
+                            </Typography>
+                          }
+                        </Box>
+                      </Box>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Typography sx={{ mb: 1 }}>Stichtag: {formatDate(t.stichtag)}</Typography>
+                      <Typography sx={{ mb: 1 }}>Ansprechpartner: {t.ansprechpartner_name || "-"} {t.ansprechpartner_mail && `(${t.ansprechpartner_mail})`}</Typography>
+                      <Typography sx={{ mb: 1 }}>Beschreibung: {t.beschreibung || "-"}</Typography>
+                    </AccordionDetails>
+                  </Accordion>
+                </Paper>
+              ))}
+            </AccordionDetails>
+          </Accordion>
+        ))}
+      </Paper>
+
+      {/* Meine Termine */}
       <Paper sx={{ p: 2, mb: 2 }}>
         <Typography variant="h6">Meine Termine</Typography>
         {meineZukuenftigeTermine.length === 0 && <Typography>Du bist aktuell für keine zukünftigen Termine angemeldet.</Typography>}
@@ -344,6 +454,7 @@ const Dashboard: React.FC = () => {
         ))}
       </Paper>
 
+      {/* Score Tabelle */}
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6" mb={2}>Score Tabelle</Typography>
         <TableContainer>
