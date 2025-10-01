@@ -319,6 +319,30 @@ const TermineAdmin: React.FC = () => {
           )}
         </Box>
       </LocalizationProvider>
+
+      {/* User zu Termin hinzufügen: Nur im Bearbeiten-Modus */}
+      {editTermin && (
+        <Box sx={{ mb: 2 }}>
+          <Divider sx={{ my: 2 }} />
+          <Typography variant="body2" sx={{ mb: 1 }}>User zu diesem Termin hinzufügen:</Typography>
+          <TextField
+            select
+            label="User"
+            value={selectedUser}
+            onChange={e => setSelectedUser(e.target.value)}
+            size="small"
+            sx={{ minWidth: 120, mr: 1 }}
+            SelectProps={{ native: true }}
+          >
+            <option value="">Bitte wählen</option>
+            {users.map(u => (
+              <option key={u.username} value={u.username}>{u.username}</option>
+            ))}
+          </TextField>
+          <Button variant="outlined" onClick={handleAddUserToTermin}>Hinzufügen</Button>
+        </Box>
+      )}
+
       <Divider sx={{ my: 2 }} />
       <Typography mb={1}>Vorhandene Termine:</Typography>
       <List>
@@ -367,26 +391,6 @@ const TermineAdmin: React.FC = () => {
                 </>
               }
             />
-            {editTermin && editTermin.id === termin.id && (
-              <Box sx={{ mt: 1 }}>
-                <Typography variant="body2">User zu diesem Termin hinzufügen:</Typography>
-                <TextField
-                  select
-                  label="User"
-                  value={selectedUser}
-                  onChange={e => setSelectedUser(e.target.value)}
-                  size="small"
-                  sx={{ minWidth: 120, mr: 1 }}
-                  SelectProps={{ native: true }}
-                >
-                  <option value="">Bitte wählen</option>
-                  {users.map(u => (
-                    <option key={u.username} value={u.username}>{u.username}</option>
-                  ))}
-                </TextField>
-                <Button variant="outlined" onClick={handleAddUserToTermin}>Hinzufügen</Button>
-              </Box>
-            )}
           </ListItem>
         ))}
       </List>
