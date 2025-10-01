@@ -467,7 +467,7 @@ const Dashboard: React.FC = () => {
             </TableHead>
             <TableBody>
               {usersFiltered
-                .sort((a, b) => a.score - b.score)
+                .sort((a, b) => b.score - a.score)
                 .map(u => (
                   <TableRow key={u.username}>
                     <TableCell>
