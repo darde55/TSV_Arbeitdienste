@@ -16,7 +16,8 @@ import {
   Select,
   MenuItem,
   FormControl,
-  InputLabel
+  InputLabel,
+  Popover
 } from "@mui/material";
 import { TimePicker } from "@mui/x-date-pickers/TimePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -25,6 +26,7 @@ import { de } from "date-fns/locale";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import RemoveCircleIcon from "@mui/icons-material/RemoveCircle";
+import AddIcon from "@mui/icons-material/Add";
 import api from "../api/api";
 import type { SelectChangeEvent } from "@mui/material/Select";
 
@@ -79,7 +81,8 @@ const TermineAdmin: React.FC = () => {
   const [editTermin, setEditTermin] = useState<Termin | null>(null);
   const [message, setMessage] = useState<string>("");
   const [users, setUsers] = useState<User[]>([]);
-  const [selectedUser, setSelectedUser] = useState<string>("");
+  const [userPopover, setUserPopover] = useState<{ anchorEl: HTMLElement | null, terminId: number | null }>({ anchorEl: null, terminId: null });
+  const [selectedUserToAdd, setSelectedUserToAdd] = useState<string>("");
 
   useEffect(() => {
     fetchTermine();
@@ -204,12 +207,24 @@ const TermineAdmin: React.FC = () => {
     }
   };
 
+  // User-Popover für Hinzufügen öffnen/schließen
+  const handleOpenUserPopover = (event: React.MouseEvent<HTMLElement>, terminId: number) => {
+    setUserPopover({ anchorEl: event.currentTarget, terminId });
+    setSelectedUserToAdd("");
+  };
+
+  const handleCloseUserPopover = () => {
+    setUserPopover({ anchorEl: null, terminId: null });
+    setSelectedUserToAdd("");
+  };
+
   const handleAddUserToTermin = async () => {
-    if (!editTermin || !selectedUser) return;
+    if (!userPopover.terminId || !selectedUserToAdd) return;
     try {
-      await api.post(`/termine/${editTermin.id}/teilnehmen`, { username: selectedUser });
-      setMessage(`User ${selectedUser} zum Termin hinzugefügt!`);
-      setSelectedUser("");
+      await api.post(`/termine/${userPopover.terminId}/teilnehmen`, { username: selectedUserToAdd });
+      setMessage(`User ${selectedUserToAdd} zum Termin hinzugefügt!`);
+      setSelectedUserToAdd("");
+      handleCloseUserPopover();
       fetchTermine();
     } catch (err) {
       setMessage("Fehler beim Hinzufügen des Users zum Termin!");
@@ -228,7 +243,6 @@ const TermineAdmin: React.FC = () => {
     }
   };
 
-  // --- Nur aktuelle Termine anzeigen ---
   const aktuelleTermine = termine.filter(t => {
     const dateOnly = t.datum.slice(0, 10);
     const ende = t.ende && /^\d{2}:\d{2}$/.test(t.ende) ? t.ende : "10:00";
@@ -320,29 +334,6 @@ const TermineAdmin: React.FC = () => {
         </Box>
       </LocalizationProvider>
 
-      {/* User zu Termin hinzufügen: Nur im Bearbeiten-Modus */}
-      {editTermin && (
-        <Box sx={{ mb: 2 }}>
-          <Divider sx={{ my: 2 }} />
-          <Typography variant="body2" sx={{ mb: 1 }}>User zu diesem Termin hinzufügen:</Typography>
-          <TextField
-            select
-            label="User"
-            value={selectedUser}
-            onChange={e => setSelectedUser(e.target.value)}
-            size="small"
-            sx={{ minWidth: 120, mr: 1 }}
-            SelectProps={{ native: true }}
-          >
-            <option value="">Bitte wählen</option>
-            {users.map(u => (
-              <option key={u.username} value={u.username}>{u.username}</option>
-            ))}
-          </TextField>
-          <Button variant="outlined" onClick={handleAddUserToTermin}>Hinzufügen</Button>
-        </Box>
-      )}
-
       <Divider sx={{ my: 2 }} />
       <Typography mb={1}>Vorhandene Termine:</Typography>
       <List>
@@ -355,6 +346,9 @@ const TermineAdmin: React.FC = () => {
                 </IconButton>
                 <IconButton edge="end" aria-label="delete" onClick={() => handleDelete(termin.id)}>
                   <DeleteIcon />
+                </IconButton>
+                <IconButton edge="end" aria-label="add-user" onClick={(e) => handleOpenUserPopover(e, termin.id)}>
+                  <AddIcon />
                 </IconButton>
               </>
             }>
@@ -394,6 +388,39 @@ const TermineAdmin: React.FC = () => {
           </ListItem>
         ))}
       </List>
+
+      {/* Popover für User-Hinzufügen */}
+      <Popover
+        open={!!userPopover.anchorEl}
+        anchorEl={userPopover.anchorEl}
+        onClose={handleCloseUserPopover}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+      >
+        <Box sx={{ p: 2, minWidth: 220 }}>
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>User hinzufügen</Typography>
+          <FormControl fullWidth size="small">
+            <InputLabel id="add-user-label">User</InputLabel>
+            <Select
+              labelId="add-user-label"
+              value={selectedUserToAdd}
+              label="User"
+              onChange={e => setSelectedUserToAdd(e.target.value)}
+            >
+              {users.map(u => (
+                <MenuItem key={u.username} value={u.username}>{u.username}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+            <Button variant="contained" size="small" onClick={handleAddUserToTermin} disabled={!selectedUserToAdd}>
+              Hinzufügen
+            </Button>
+            <Button variant="outlined" size="small" onClick={handleCloseUserPopover}>
+              Abbrechen
+            </Button>
+          </Box>
+        </Box>
+      </Popover>
     </Paper>
   );
 };
