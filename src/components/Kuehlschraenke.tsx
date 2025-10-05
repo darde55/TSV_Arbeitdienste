@@ -1,5 +1,23 @@
 import { useEffect, useState } from "react";
-import { Box, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Table, TableHead, TableRow, TableCell, TableBody, TableContainer, IconButton, Snackbar, Alert } from "@mui/material";
+import {
+  Box,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  TableContainer,
+  IconButton,
+  Snackbar,
+  Alert,
+  Typography
+} from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -20,6 +38,9 @@ const Kuehlschraenke = () => {
   const [produktBestand, setProduktBestand] = useState<number>(0);
   const [editProduktId, setEditProduktId] = useState<number | null>(null);
   const [produktPreis, setProduktPreis] = useState<number>(0);
+  const [produktDialogOpen, setProduktDialogOpen] = useState(false);
+  const [deleteKuehlschrankDialogOpen, setDeleteKuehlschrankDialogOpen] = useState(false);
+  const [kuehlschrankToDelete, setKuehlschrankToDelete] = useState<Kuehlschrank | null>(null);
 
   useEffect(() => {
     fetchKuehlschraenke();
@@ -59,15 +80,72 @@ const Kuehlschraenke = () => {
     setProduktName("");
     setProduktBestand(0);
     setProduktPreis(0);
+    setProduktDialogOpen(false);
     fetchKuehlschraenke();
   };
 
-  // Produkt löschen
-  const handleDeleteProdukt = async (produktId: number) => {
-    if (!selectedKuehlschrank) return;
-    await api.delete(`/kiosk/kuehlschraenke/${selectedKuehlschrank.id}/inhalt/${produktId}`);
-    setSnack("Produkt entfernt!");
-    fetchKuehlschraenke();
+  // Produkt löschen aus Kühlschrank
+  const handleDeleteProdukt = async () => {
+    if (!selectedKuehlschrank || !editProduktId) return;
+    try {
+      await api.delete(`/kiosk/kuehlschraenke/${selectedKuehlschrank.id}/inhalt/${editProduktId}`);
+      setSnack("Produkt entfernt!");
+      setEditProduktId(null);
+      setProduktName("");
+      setProduktBestand(0);
+      setProduktPreis(0);
+      setProduktDialogOpen(false);
+      fetchKuehlschraenke();
+    } catch {
+      setSnack("Fehler beim Löschen!");
+    }
+  };
+
+  // Gesamten Kühlschrank löschen
+  const handleDeleteKuehlschrank = async () => {
+    if (!kuehlschrankToDelete) return;
+    try {
+      await api.delete(`/kiosk/kuehlschraenke/${kuehlschrankToDelete.id}`);
+      setSnack("Kühlschrank gelöscht!");
+      setDeleteKuehlschrankDialogOpen(false);
+      setKuehlschrankToDelete(null);
+      fetchKuehlschraenke();
+    } catch {
+      setSnack("Fehler beim Löschen des Kühlschranks!");
+    }
+  };
+
+  // Öffnet den Dialog zum Produkt Hinzufügen/Bearbeiten
+  const openProduktDialog = (
+    k: Kuehlschrank,
+    p?: KuehlschrankProdukt
+  ) => {
+    setSelectedKuehlschrank(k);
+    setProduktName(p?.name || "");
+    setProduktBestand(p?.bestand || 0);
+    setEditProduktId(p?.id ?? null);
+    setProduktPreis(p?.preis ?? 0);
+    setProduktDialogOpen(true);
+  };
+
+  const closeProduktDialog = () => {
+    setSelectedKuehlschrank(null);
+    setProduktName("");
+    setProduktBestand(0);
+    setEditProduktId(null);
+    setProduktPreis(0);
+    setProduktDialogOpen(false);
+  };
+
+  // Öffnet Dialog für Kühlschrank-Löschung
+  const openDeleteKuehlschrankDialog = (k: Kuehlschrank) => {
+    setKuehlschrankToDelete(k);
+    setDeleteKuehlschrankDialogOpen(true);
+  };
+
+  const closeDeleteKuehlschrankDialog = () => {
+    setKuehlschrankToDelete(null);
+    setDeleteKuehlschrankDialogOpen(false);
   };
 
   return (
@@ -98,17 +176,10 @@ const Kuehlschraenke = () => {
                         <span>
                           {p.name} ({p.bestand}){typeof p.preis === "number" && ` - ${p.preis.toFixed(2)} €`}
                         </span>
-                        <IconButton size="small" color="primary" onClick={() => {
-                          setSelectedKuehlschrank(k);
-                          setProduktName(p.name);
-                          setProduktBestand(p.bestand);
-                          setEditProduktId(p.id);
-                          setProduktPreis(p.preis ?? 0);
-                        }}><EditIcon /></IconButton>
-                        <IconButton size="small" color="error" onClick={() => {
-                          setSelectedKuehlschrank(k);
-                          handleDeleteProdukt(p.id);
-                        }}>
+                        <IconButton size="small" color="primary" onClick={() => openProduktDialog(k, p)}>
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton size="small" color="error" onClick={() => openProduktDialog(k, p)}>
                           <DeleteIcon />
                         </IconButton>
                       </Box>
@@ -116,20 +187,20 @@ const Kuehlschraenke = () => {
                     <Button
                       size="small"
                       startIcon={<AddIcon />}
-                      onClick={() => {
-                        setSelectedKuehlschrank(k);
-                        setProduktName("");
-                        setProduktBestand(0);
-                        setEditProduktId(null);
-                        setProduktPreis(0);
-                      }}
+                      onClick={() => openProduktDialog(k)}
                     >
                       Produkt hinzufügen
                     </Button>
                   </Box>
                 </TableCell>
                 <TableCell>
-                  {/* Optional: Kühlschrank löschen */}
+                  <IconButton
+                    size="small"
+                    color="error"
+                    onClick={() => openDeleteKuehlschrankDialog(k)}
+                  >
+                    <DeleteIcon />
+                  </IconButton>
                 </TableCell>
               </TableRow>
             ))}
@@ -150,15 +221,9 @@ const Kuehlschraenke = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Dialog Produkt hinzufügen/bearbeiten */}
-      <Dialog open={!!selectedKuehlschrank} onClose={() => {
-        setSelectedKuehlschrank(null);
-        setProduktName("");
-        setProduktBestand(0);
-        setEditProduktId(null);
-        setProduktPreis(0);
-      }}>
-        <DialogTitle>{editProduktId ? "Produkt bearbeiten" : "Produkt hinzufügen"}</DialogTitle>
+      {/* Dialog Produkt hinzufügen/bearbeiten/löschen */}
+      <Dialog open={produktDialogOpen} onClose={closeProduktDialog}>
+        <DialogTitle>{editProduktId ? "Produkt bearbeiten oder löschen" : "Produkt hinzufügen"}</DialogTitle>
         <DialogContent>
           <TextField label="Produktname" fullWidth value={produktName} onChange={e => setProduktName(e.target.value)} sx={{ mb: 2 }} />
           <TextField label="Bestand" type="number" fullWidth value={produktBestand} onChange={e => setProduktBestand(Number(e.target.value))} sx={{ mb: 2 }} />
@@ -181,14 +246,34 @@ const Kuehlschraenke = () => {
           </TextField>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => {
-            setSelectedKuehlschrank(null);
-            setProduktName("");
-            setProduktBestand(0);
-            setEditProduktId(null);
-            setProduktPreis(0);
-          }}>Abbrechen</Button>
-          <Button variant="contained" onClick={handleAddProdukt}>Speichern</Button>
+          {editProduktId && (
+            <Button color="error" onClick={handleDeleteProdukt}>
+              Produkt löschen
+            </Button>
+          )}
+          <Button onClick={closeProduktDialog}>Abbrechen</Button>
+          <Button variant="contained" onClick={handleAddProdukt}>
+            {editProduktId ? "Speichern" : "Hinzufügen"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog Gesamten Kühlschrank löschen */}
+      <Dialog open={deleteKuehlschrankDialogOpen} onClose={closeDeleteKuehlschrankDialog}>
+        <DialogTitle>Kühlschrank löschen</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Möchtest du den Kühlschrank{' '}
+            <b>{kuehlschrankToDelete?.name}</b> wirklich <b>vollständig löschen</b>?
+            <br />
+            Alle zugehörigen Produkte werden entfernt!
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeDeleteKuehlschrankDialog}>Abbrechen</Button>
+          <Button color="error" variant="contained" onClick={handleDeleteKuehlschrank}>
+            Kühlschrank löschen
+          </Button>
         </DialogActions>
       </Dialog>
 
