@@ -1,13 +1,19 @@
 import React, { useEffect, useState } from "react";
 import {
   Paper, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  IconButton, Box, Select, MenuItem, FormControl, InputLabel, Snackbar, Alert, Button,
-  Dialog, DialogTitle, DialogContent, DialogActions, List, ListItem, ListItemText, CircularProgress,
-  TextField, Pagination
+  IconButton, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Select,
+  MenuItem, InputLabel, FormControl, Box, Checkbox, FormControlLabel, Snackbar, Alert
 } from "@mui/material";
-import DeleteIcon from '@mui/icons-material/Delete';
-import InfoIcon from '@mui/icons-material/Info';
+import EditIcon from "@mui/icons-material/Edit";
+import GroupAddIcon from "@mui/icons-material/GroupAdd";
+import DeleteIcon from "@mui/icons-material/Delete";
+import RemoveCircleIcon from "@mui/icons-material/RemoveCircle";
+import AddCircleIcon from "@mui/icons-material/AddCircle";
+import type { SelectChangeEvent } from "@mui/material/Select";
 import api from "../api/api";
+
+type TerminKategorie = "Schiedsrichter" | "Grillen" | "Sonstiges";
+const kategorien: TerminKategorie[] = ["Schiedsrichter", "Grillen", "Sonstiges"];
 
 type Termin = {
   id: number;
@@ -21,122 +27,145 @@ type Termin = {
   ansprechpartner_name?: string;
   ansprechpartner_mail?: string;
   score?: number;
+  stichtagsmail_senden?: boolean;
+  zufallsauswahl?: boolean;
+  teilnehmer?: { username: string }[];
+  kategorie?: TerminKategorie;
 };
 
-type Teilnehmer = {
+type User = {
   username: string;
-  email?: string;
-  score?: number;
+  email: string;
 };
 
-const PAGE_SIZE = 10;
+const initialTermin: Omit<Termin, "id" | "teilnehmer"> = {
+  titel: "",
+  beschreibung: "",
+  datum: "",
+  beginn: "",
+  ende: "",
+  anzahl: undefined,
+  stichtag: "",
+  ansprechpartner_name: "",
+  ansprechpartner_mail: "",
+  score: 0,
+  stichtagsmail_senden: false,
+  zufallsauswahl: false,
+  kategorie: "Sonstiges"
+};
 
-const TerminArchiv: React.FC = () => {
+const TerminAdmin: React.FC = () => {
   const [termine, setTermine] = useState<Termin[]>([]);
-  const [sortBy, setSortBy] = useState<"datum" | "titel">("datum");
-  const [snackOpen, setSnackOpen] = useState(false);
-  const [error, setError] = useState<string>("");
-  const [search, setSearch] = useState<string>("");
-  const [page, setPage] = useState(1);
-
-  // Details-Dialog
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [users, setUsers] = useState<User[]>([]);
   const [selectedTermin, setSelectedTermin] = useState<Termin | null>(null);
-  const [teilnehmer, setTeilnehmer] = useState<Teilnehmer[]>([]);
-  const [teilnehmerLoading, setTeilnehmerLoading] = useState(false);
-  const [detailsError, setDetailsError] = useState<string>("");
-
-  const fetchTermine = async () => {
-    try {
-      const res = await api.get<Termin[]>("/termine");
-      setTermine(res.data);
-    } catch {
-      setError("Fehler beim Laden der Termine.");
-    }
-  };
+  const [editForm, setEditForm] = useState<Omit<Termin, "id" | "teilnehmer">>(initialTermin);
+  const [editOpen, setEditOpen] = useState(false);
+  const [snack, setSnack] = useState<string>("");
+  const [selectedUser, setSelectedUser] = useState<string>("");
 
   useEffect(() => {
     fetchTermine();
+    fetchUsers();
   }, []);
 
-  const handleDelete = async (id: number) => {
-    try {
-      await api.delete(`/termine/${id}`);
-      setSnackOpen(true);
-      fetchTermine();
-    } catch {
-      setError("Fehler beim Löschen des Termins.");
-    }
+  const fetchTermine = async () => {
+    const res = await api.get<Termin[]>("/termine");
+    setTermine(res.data);
+  };
+  const fetchUsers = async () => {
+    const res = await api.get<User[]>("/users");
+    setUsers(res.data);
   };
 
-  const handleShowDetails = async (termin: Termin) => {
-    setDetailsOpen(true);
+  // Bearbeiten Dialog öffnen
+  const handleEditOpen = (termin: Termin) => {
     setSelectedTermin(termin);
-    setTeilnehmer([]);
-    setTeilnehmerLoading(true);
-    setDetailsError("");
-    try {
-      const res = await api.get<Teilnehmer[]>(`/termine/${termin.id}/teilnehmer`);
-      setTeilnehmer(res.data);
-    } catch {
-      setDetailsError("Fehler beim Laden der Teilnehmer.");
-    }
-    setTeilnehmerLoading(false);
+    setEditForm({
+      titel: termin.titel ?? "",
+      beschreibung: termin.beschreibung ?? "",
+      datum: termin.datum ?? "",
+      beginn: termin.beginn ?? "",
+      ende: termin.ende ?? "",
+      anzahl: termin.anzahl ?? undefined,
+      stichtag: termin.stichtag ?? "",
+      ansprechpartner_name: termin.ansprechpartner_name ?? "",
+      ansprechpartner_mail: termin.ansprechpartner_mail ?? "",
+      score: termin.score ?? 0,
+      stichtagsmail_senden: termin.stichtagsmail_senden ?? false,
+      zufallsauswahl: termin.zufallsauswahl ?? false,
+      kategorie: termin.kategorie ?? "Sonstiges"
+    });
+    setEditOpen(true);
+    setSelectedUser("");
   };
 
-  const handleCloseDetails = () => {
-    setDetailsOpen(false);
+  // Bearbeiten Dialog schließen
+  const handleEditClose = () => {
+    setEditOpen(false);
     setSelectedTermin(null);
-    setTeilnehmer([]);
-    setDetailsError("");
+    setEditForm(initialTermin);
+    setSelectedUser("");
   };
 
-  // Suche und Sortierung
-  const filteredTermine = termine.filter(t => {
-    const query = search.toLowerCase();
-    return t.titel.toLowerCase().includes(query) ||
-      new Date(t.datum).toLocaleDateString("de-DE").includes(query);
-  });
+  // Termin speichern
+  const handleEditSave = async () => {
+    if (!selectedTermin) return;
+    await api.put(`/termine/${selectedTermin.id}`, editForm);
+    setSnack("Termin gespeichert!");
+    setEditOpen(false);
+    fetchTermine();
+  };
 
-  const sortedTermine = [...filteredTermine].sort((a, b) => {
-    if (sortBy === "datum") {
-      return new Date(a.datum).getTime() - new Date(b.datum).getTime();
-    }
-    return a.titel.localeCompare(b.titel, "de", { sensitivity: "base" });
-  });
+  // Teilnehmer hinzufügen
+  const handleAddUser = async () => {
+    if (!selectedTermin || !selectedUser) return;
+    await api.post(`/termine/${selectedTermin.id}/teilnehmen`, { username: selectedUser });
+    setSnack(`User ${selectedUser} hinzugefügt`);
+    fetchTermine();
+    setSelectedUser("");
+  };
 
-  // Pagination
-  const pageCount = Math.ceil(sortedTermine.length / PAGE_SIZE);
-  const pagedTermine = sortedTermine.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  // Teilnehmer entfernen
+  const handleRemoveUser = async (username: string) => {
+    if (!selectedTermin) return;
+    await api.delete(`/termine/${selectedTermin.id}/teilnehmer/${username}`);
+    setSnack(`User ${username} entfernt`);
+    fetchTermine();
+  };
 
-  useEffect(() => {
-    setPage(1); // Seite zurücksetzen, wenn Suche oder Sortierung geändert wird
-  }, [search, sortBy, termine]);
+  // Termin löschen
+  const handleDelete = async (id: number) => {
+    await api.delete(`/termine/${id}`);
+    setSnack("Termin gelöscht!");
+    fetchTermine();
+  };
+
+  // Typisiert für Input-Felder!
+  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type } = e.target;
+    setEditForm(prev => ({
+      ...prev,
+      [name]: type === "number" ? Number(value) : value
+    }));
+  };
+  // Typisiert für MUI Select!
+  const handleSelectChange = (e: SelectChangeEvent) => {
+    setEditForm(prev => ({
+      ...prev,
+      kategorie: e.target.value as TerminKategorie
+    }));
+  };
+  // Typisiert für Checkbox!
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEditForm(prev => ({
+      ...prev,
+      [e.target.name]: e.target.checked
+    }));
+  };
 
   return (
     <Paper sx={{ p: 2, mt: 2 }}>
-      <Typography variant="h6" mb={2}>Termin-Archiv</Typography>
-      <Box sx={{ mb: 2, display: "flex", alignItems: "center", gap: 2 }}>
-        <TextField
-          size="small"
-          label="Suche"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
-        <FormControl size="small">
-          <InputLabel id="sort-label">Sortieren nach</InputLabel>
-          <Select
-            labelId="sort-label"
-            value={sortBy}
-            label="Sortieren nach"
-            onChange={e => setSortBy(e.target.value as "datum" | "titel")}
-            sx={{ minWidth: 140 }}
-          >
-            <MenuItem value="datum">Datum</MenuItem>
-            <MenuItem value="titel">Alphabetisch</MenuItem>
-          </Select>
-        </FormControl>
-      </Box>
+      <Typography variant="h6" mb={2}>Termine Verwaltung</Typography>
       <TableContainer>
         <Table size="small">
           <TableHead>
@@ -145,20 +174,31 @@ const TerminArchiv: React.FC = () => {
               <TableCell>Datum</TableCell>
               <TableCell>Beginn</TableCell>
               <TableCell>Ende</TableCell>
-              <TableCell>Details</TableCell>
+              <TableCell>Kategorie</TableCell>
+              <TableCell>Score</TableCell>
+              <TableCell>Bearbeiten</TableCell>
+              <TableCell>Teilnehmer</TableCell>
               <TableCell>Löschen</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {pagedTermine.map(t => (
+            {termine.map(t => (
               <TableRow key={t.id}>
                 <TableCell>{t.titel}</TableCell>
-                <TableCell>{new Date(t.datum).toLocaleDateString("de-DE")}</TableCell>
+                <TableCell>{t.datum}</TableCell>
                 <TableCell>{t.beginn}</TableCell>
                 <TableCell>{t.ende}</TableCell>
+                <TableCell>{t.kategorie}</TableCell>
+                <TableCell>{t.score}</TableCell>
                 <TableCell>
-                  <IconButton color="primary" onClick={() => handleShowDetails(t)}>
-                    <InfoIcon />
+                  <IconButton color="primary" onClick={() => handleEditOpen(t)}>
+                    <EditIcon />
+                  </IconButton>
+                </TableCell>
+                <TableCell>
+                  {/* Teilnehmer-Button öffnet auch Bearbeiten-Dialog für Teilnehmerverwaltung */}
+                  <IconButton color="secondary" onClick={() => handleEditOpen(t)}>
+                    <GroupAddIcon />
                   </IconButton>
                 </TableCell>
                 <TableCell>
@@ -171,95 +211,100 @@ const TerminArchiv: React.FC = () => {
           </TableBody>
         </Table>
       </TableContainer>
-      <Box sx={{ mt: 1, display: "flex", justifyContent: "center" }}>
-        {pageCount > 1 && (
-          <Pagination
-            count={pageCount}
-            page={page}
-            onChange={(_, value) => setPage(value)}
-            color="primary"
-            size="small"
-          />
-        )}
-      </Box>
-      <Snackbar
-        open={snackOpen}
-        autoHideDuration={4000}
-        onClose={() => setSnackOpen(false)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      >
-        <Alert severity="success" onClose={() => setSnackOpen(false)}>
-          Termin wurde gelöscht!
-        </Alert>
-      </Snackbar>
-      {error && (
-        <Alert severity="error" sx={{ mt: 2 }}>
-          {error}
-        </Alert>
-      )}
 
-      <Dialog open={detailsOpen} onClose={handleCloseDetails}>
-        <DialogTitle>Termin-Details</DialogTitle>
-        <DialogContent sx={{ minWidth: 350 }}>
-          {selectedTermin && (
-            <>
-              <Typography>
-                <b>Titel:</b> {selectedTermin.titel}
-              </Typography>
-              <Typography>
-                <b>Beschreibung:</b> {selectedTermin.beschreibung || "-"}
-              </Typography>
-              <Typography>
-                <b>Datum:</b> {new Date(selectedTermin.datum).toLocaleDateString("de-DE")}
-              </Typography>
-              <Typography>
-                <b>Beginn:</b> {selectedTermin.beginn}
-              </Typography>
-              <Typography>
-                <b>Ende:</b> {selectedTermin.ende}
-              </Typography>
-              <Typography>
-                <b>Plätze:</b> {selectedTermin.anzahl}
-              </Typography>
-              <Typography>
-                <b>Stichtag:</b> {selectedTermin.stichtag ? new Date(selectedTermin.stichtag).toLocaleDateString("de-DE") : "-"}
-              </Typography>
-              <Typography>
-                <b>Ansprechpartner:</b> {selectedTermin.ansprechpartner_name} {selectedTermin.ansprechpartner_mail && `(${selectedTermin.ansprechpartner_mail})`}
-              </Typography>
-              <Typography>
-                <b>Score:</b> {selectedTermin.score}
-              </Typography>
-              <Typography sx={{ mt: 2, mb: 1 }}>
-                <b>Teilnehmer:</b>
-              </Typography>
-              {teilnehmerLoading ? (
-                <CircularProgress size={24} />
-              ) : detailsError ? (
-                <Alert severity="error">{detailsError}</Alert>
-              ) : teilnehmer.length === 0 ? (
-                <Typography>Keine Teilnehmer eingetragen.</Typography>
-              ) : (
-                <List dense>
-                  {teilnehmer.map(u => (
-                    <ListItem key={u.username}>
-                      <ListItemText
-                        primary={u.username}
-                        secondary={u.email ? `E-Mail: ${u.email} | Score: ${u.score}` : undefined}
-                      />
-                    </ListItem>
+      {/* Edit Dialog */}
+      <Dialog open={editOpen} onClose={handleEditClose} maxWidth="md" fullWidth>
+        <DialogTitle>Termin bearbeiten</DialogTitle>
+        <DialogContent>
+          <Box display="flex" flexWrap="wrap" gap={2} mt={1}>
+            <TextField label="Titel" name="titel" value={editForm.titel} onChange={handleFormChange} size="small" />
+            <TextField label="Beschreibung" name="beschreibung" value={editForm.beschreibung} onChange={handleFormChange} size="small" />
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel id="kategorie-label">Kategorie</InputLabel>
+              <Select labelId="kategorie-label" name="kategorie" value={editForm.kategorie} onChange={handleSelectChange} label="Kategorie">
+                {kategorien.map(kat => (
+                  <MenuItem key={kat} value={kat}>{kat}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField label="Datum" name="datum" type="date" value={editForm.datum} onChange={handleFormChange} size="small" InputLabelProps={{ shrink: true }} />
+            <TextField label="Beginn" name="beginn" value={editForm.beginn} onChange={handleFormChange} size="small" />
+            <TextField label="Ende" name="ende" value={editForm.ende} onChange={handleFormChange} size="small" />
+            <TextField label="Anzahl" name="anzahl" type="number" value={editForm.anzahl ?? ""} onChange={handleFormChange} size="small" />
+            <TextField label="Stichtag" name="stichtag" type="date" value={editForm.stichtag} onChange={handleFormChange} size="small" InputLabelProps={{ shrink: true }} />
+            <TextField label="Ansprechpartner Name" name="ansprechpartner_name" value={editForm.ansprechpartner_name} onChange={handleFormChange} size="small" />
+            <TextField label="Ansprechpartner Mail" name="ansprechpartner_mail" value={editForm.ansprechpartner_mail} onChange={handleFormChange} size="small" />
+            <TextField label="Score" name="score" type="number" value={editForm.score ?? ""} onChange={handleFormChange} size="small" />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  name="stichtagsmail_senden"
+                  checked={!!editForm.stichtagsmail_senden}
+                  onChange={handleCheckboxChange}
+                />
+              }
+              label="Stichtagsmail senden"
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  name="zufallsauswahl"
+                  checked={!!editForm.zufallsauswahl}
+                  onChange={handleCheckboxChange}
+                />
+              }
+              label="Zufallsauswahl aktivieren"
+            />
+          </Box>
+          {/* Teilnehmer-Verwaltung */}
+          <Box mt={4}>
+            <Typography variant="subtitle2" mb={1}>Teilnehmer:</Typography>
+            <Box display="flex" gap={2} alignItems="center">
+              <FormControl size="small" sx={{ minWidth: 140 }}>
+                <InputLabel id="add-user-label">User hinzufügen</InputLabel>
+                <Select
+                  labelId="add-user-label"
+                  value={selectedUser}
+                  label="User hinzufügen"
+                  onChange={(e: SelectChangeEvent) => setSelectedUser(e.target.value)}
+                >
+                  {users.map(u => (
+                    <MenuItem key={u.username} value={u.username}>{u.username}</MenuItem>
                   ))}
-                </List>
-              )}
-            </>
-          )}
+                </Select>
+              </FormControl>
+              <Button variant="contained" size="small" startIcon={<AddCircleIcon />} onClick={handleAddUser} disabled={!selectedUser}>
+                Hinzufügen
+              </Button>
+            </Box>
+            <Box mt={2}>
+              {selectedTermin?.teilnehmer?.map(tn => (
+                <Box key={tn.username} sx={{ display: "inline-flex", alignItems: "center", mr: 2 }}>
+                  <span>{tn.username}</span>
+                  <IconButton size="small" color="error" sx={{ ml: 0.5 }}
+                    onClick={() => handleRemoveUser(tn.username)}>
+                    <RemoveCircleIcon />
+                  </IconButton>
+                </Box>
+              ))}
+            </Box>
+          </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDetails}>Schließen</Button>
+          <Button onClick={handleEditClose} color="error">Abbrechen</Button>
+          <Button onClick={handleEditSave} variant="contained" color="primary">Speichern</Button>
         </DialogActions>
       </Dialog>
+      <Snackbar
+        open={!!snack}
+        autoHideDuration={3000}
+        onClose={() => setSnack("")}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert severity="success" onClose={() => setSnack("")}>{snack}</Alert>
+      </Snackbar>
     </Paper>
   );
 };
 
-export default TerminArchiv;
+export default TerminAdmin;
