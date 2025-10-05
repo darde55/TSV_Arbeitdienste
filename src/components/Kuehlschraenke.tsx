@@ -55,14 +55,16 @@ const Kuehlschraenke = () => {
   const [deleteKuehlschrankDialogOpen, setDeleteKuehlschrankDialogOpen] = useState(false);
   const [kuehlschrankToDelete, setKuehlschrankToDelete] = useState<Kuehlschrank | null>(null);
 
-  // Inhalt bearbeiten Dialog
-  const [inhaltDialogOpen, setInhaltDialogOpen] = useState(false);
+  // Dialog für Produktbearbeitung (Bestand ändern/löschen)
+  const [produktDialogOpen, setProduktDialogOpen] = useState(false);
   const [selectedKuehlschrank, setSelectedKuehlschrank] = useState<Kuehlschrank | null>(null);
-
-  // Produkt bearbeiten im Kühlschrank
-  const [produktId, setProduktId] = useState<number | null>(null);
+  const [selectedProdukt, setSelectedProdukt] = useState<KuehlschrankProdukt | null>(null);
   const [produktBestand, setProduktBestand] = useState<number>(0);
-  const [editProduktId, setEditProduktId] = useState<number | null>(null);
+
+  // Dialog für neues Produkt im Kühlschrank
+  const [addProduktDialogOpen, setAddProduktDialogOpen] = useState(false);
+  const [addProduktId, setAddProduktId] = useState<number | null>(null);
+  const [addProduktBestand, setAddProduktBestand] = useState<number>(0);
 
   useEffect(() => {
     fetchKuehlschraenke();
@@ -82,9 +84,7 @@ const Kuehlschraenke = () => {
     try {
       const res = await api.get<ProduktPreisliste[]>("/kiosk/preisliste");
       setProduktePreisliste(res.data);
-    } catch {
-      // Fehler ignorieren, falls Preisliste nicht nötig
-    }
+    } catch { /* ignore */ }
   };
 
   // Kühlschrank anlegen
@@ -114,68 +114,77 @@ const Kuehlschraenke = () => {
     }
   };
 
-  // Öffnet "Inhalt bearbeiten" für alle Produkte eines Kühlschranks
-  const handleOpenInhaltDialog = (k: Kuehlschrank) => {
+  // Produkt bearbeiten im Kühlschrank
+  const openProduktDialog = (k: Kuehlschrank, p: KuehlschrankProdukt) => {
     setSelectedKuehlschrank(k);
-    setInhaltDialogOpen(true);
-    setEditProduktId(null);
-    setProduktId(null);
-    setProduktBestand(0);
-  };
-
-  // Klick auf "Bearbeiten"-Icon für ein Produkt im Kühlschrank
-  const handleEditProdukt = (p: KuehlschrankProdukt) => {
-    setEditProduktId(p.id);
-    setProduktId(p.produkt_id);
+    setSelectedProdukt(p);
     setProduktBestand(p.bestand);
-    setInhaltDialogOpen(true);
-    setSelectedKuehlschrank(
-      kuehlschraenke.find(k => k.inhalt.some(prod => prod.id === p.id)) || null
-    );
+    setProduktDialogOpen(true);
   };
 
-  // Produkt speichern/bearbeiten (Bestand anpassen)
+  // Produktbestand speichern
   const handleSaveProdukt = async () => {
-    if (!selectedKuehlschrank || !produktId) return;
+    if (!selectedKuehlschrank || !selectedProdukt) return;
     try {
       await api.post(`/kiosk/kuehlschraenke/${selectedKuehlschrank.id}/inhalt`, {
-        produktId: produktId,
+        produktId: selectedProdukt.produkt_id,
         bestand: produktBestand,
       });
-      setSnack({ message: editProduktId ? "Produkt geändert!" : "Produkt hinzugefügt!", severity: "success" });
-      setEditProduktId(null);
-      setProduktId(null);
+      setSnack({ message: "Bestand geändert!", severity: "success" });
+      setProduktDialogOpen(false);
+      setSelectedKuehlschrank(null);
+      setSelectedProdukt(null);
       setProduktBestand(0);
       fetchKuehlschraenke();
-      // Refresh Inhalt
-      const updated = await api.get<Kuehlschrank>(`/kiosk/kuehlschraenke/${selectedKuehlschrank.id}`);
-      setSelectedKuehlschrank(updated.data);
-      setInhaltDialogOpen(false);
     } catch {
       setSnack({ message: "Fehler beim Speichern!", severity: "error" });
     }
   };
 
   // Produkt aus Kühlschrank löschen
-  const handleDeleteProdukt = async (p: KuehlschrankProdukt) => {
-    if (!selectedKuehlschrank || !p.id) return;
+  const handleDeleteProdukt = async () => {
+    if (!selectedKuehlschrank || !selectedProdukt) return;
     try {
-      await api.delete(`/kiosk/kuehlschraenke/${selectedKuehlschrank.id}/inhalt/${p.id}`);
+      await api.delete(`/kiosk/kuehlschraenke/${selectedKuehlschrank.id}/inhalt/${selectedProdukt.id}`);
       setSnack({ message: "Produkt entfernt!", severity: "success" });
-      setEditProduktId(null);
-      setProduktId(null);
+      setProduktDialogOpen(false);
+      setSelectedKuehlschrank(null);
+      setSelectedProdukt(null);
       setProduktBestand(0);
       fetchKuehlschraenke();
-      // Refresh Inhalt
-      const updated = await api.get<Kuehlschrank>(`/kiosk/kuehlschraenke/${selectedKuehlschrank.id}`);
-      setSelectedKuehlschrank(updated.data);
-      setInhaltDialogOpen(false);
     } catch {
       setSnack({ message: "Fehler beim Löschen!", severity: "error" });
     }
   };
 
-  // --- Gesamtbestand für Diagramm (und Einzelbestand je Kühlschrank) ---
+  // Dialog für neues Produkt im Kühlschrank öffnen
+  const openAddProduktDialog = (k: Kuehlschrank) => {
+    setSelectedKuehlschrank(k);
+    setAddProduktDialogOpen(true);
+    setAddProduktId(null);
+    setAddProduktBestand(0);
+  };
+
+  // Neues Produkt im Kühlschrank speichern
+  const handleAddProdukt = async () => {
+    if (!selectedKuehlschrank || !addProduktId) return;
+    try {
+      await api.post(`/kiosk/kuehlschraenke/${selectedKuehlschrank.id}/inhalt`, {
+        produktId: addProduktId,
+        bestand: addProduktBestand,
+      });
+      setSnack({ message: "Produkt hinzugefügt!", severity: "success" });
+      setAddProduktDialogOpen(false);
+      setSelectedKuehlschrank(null);
+      setAddProduktId(null);
+      setAddProduktBestand(0);
+      fetchKuehlschraenke();
+    } catch {
+      setSnack({ message: "Fehler beim Hinzufügen!", severity: "error" });
+    }
+  };
+
+  // --- Balkendiagramm: Bestand je Produkt & Kühlschrank ---
   const chartData: { name: string; bestand: number }[] = [];
   kuehlschraenke.forEach(k => {
     k.inhalt.forEach(p => {
@@ -193,11 +202,19 @@ const Kuehlschraenke = () => {
       </Button>
       <Stack direction="row" spacing={3} sx={{ mt: 2, flexWrap: "wrap" }}>
         {kuehlschraenke.map(k => (
-          <Card key={k.id} sx={{ width: 250, minHeight: 180, position: "relative", bgcolor: "#e3f2fd" }}>
+          <Card key={k.id} sx={{ width: 260, minHeight: 180, position: "relative", bgcolor: "#e3f2fd" }}>
             <CardContent>
               <Typography variant="h6">{k.name}</Typography>
               <Typography variant="body2" sx={{ mb: 1 }}>Standort: {k.standort}</Typography>
               <Typography variant="subtitle2">Inhalt:</Typography>
+              <Button
+                size="small"
+                variant="outlined"
+                sx={{ mb: 1 }}
+                onClick={() => openAddProduktDialog(k)}
+              >
+                Produkt hinzufügen
+              </Button>
               {k.inhalt?.length > 0 ? (
                 <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none" }}>
                   {k.inhalt.map(p => (
@@ -215,10 +232,10 @@ const Kuehlschraenke = () => {
                         {p.name} ({p.bestand})
                       </span>
                       <span>
-                        <IconButton size="small" onClick={() => handleEditProdukt(p)}>
+                        <IconButton size="small" onClick={() => openProduktDialog(k, p)}>
                           <EditIcon fontSize="small" />
                         </IconButton>
-                        <IconButton size="small" color="error" onClick={() => { setSelectedKuehlschrank(k); handleDeleteProdukt(p); }}>
+                        <IconButton size="small" color="error" onClick={() => openProduktDialog(k, p)}>
                           <DeleteIcon fontSize="small" />
                         </IconButton>
                       </span>
@@ -228,9 +245,6 @@ const Kuehlschraenke = () => {
               ) : <Typography color="text.secondary">leer</Typography>}
             </CardContent>
             <CardActions sx={{ position: "absolute", bottom: 8, left: 8 }}>
-              <Button size="small" variant="outlined" onClick={() => handleOpenInhaltDialog(k)}>
-                Inhalt bearbeiten
-              </Button>
               <Button size="small" color="error" variant="outlined" onClick={() => { setKuehlschrankToDelete(k); setDeleteKuehlschrankDialogOpen(true); }}>
                 Löschen
               </Button>
@@ -272,16 +286,41 @@ const Kuehlschraenke = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Dialog Inhalt bearbeiten */}
-      <Dialog open={inhaltDialogOpen} onClose={() => setInhaltDialogOpen(false)}>
-        <DialogTitle>Inhalt bearbeiten – {selectedKuehlschrank?.name}</DialogTitle>
+      {/* Dialog Produkt bearbeiten/löschen */}
+      <Dialog open={produktDialogOpen} onClose={() => setProduktDialogOpen(false)}>
+        <DialogTitle>
+          Produkt bearbeiten – {selectedKuehlschrank?.name}
+        </DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mb: 2 }}>
+            Produkt: <b>{selectedProdukt?.name}</b>
+          </Typography>
+          <TextField
+            label="Bestand"
+            type="number"
+            fullWidth
+            value={produktBestand}
+            onChange={e => setProduktBestand(Number(e.target.value))}
+            sx={{ mb: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button color="error" onClick={handleDeleteProdukt}>Produkt entfernen</Button>
+          <Button onClick={() => setProduktDialogOpen(false)}>Abbrechen</Button>
+          <Button variant="contained" onClick={handleSaveProdukt}>Speichern</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog Produkt hinzufügen */}
+      <Dialog open={addProduktDialogOpen} onClose={() => setAddProduktDialogOpen(false)}>
+        <DialogTitle>Produkt hinzufügen – {selectedKuehlschrank?.name}</DialogTitle>
         <DialogContent>
           <FormControl fullWidth sx={{ mb: 2 }}>
             <InputLabel id="produkt-select-label">Produkt</InputLabel>
             <Select
               labelId="produkt-select-label"
-              value={produktId ?? ""}
-              onChange={e => setProduktId(Number(e.target.value))}
+              value={addProduktId ?? ""}
+              onChange={e => setAddProduktId(Number(e.target.value))}
               label="Produkt"
             >
               {produktePreisliste.map(prod => (
@@ -289,18 +328,11 @@ const Kuehlschraenke = () => {
               ))}
             </Select>
           </FormControl>
-          <TextField label="Bestand" type="number" fullWidth value={produktBestand} onChange={e => setProduktBestand(Number(e.target.value))} sx={{ mb: 2 }} />
+          <TextField label="Bestand" type="number" fullWidth value={addProduktBestand} onChange={e => setAddProduktBestand(Number(e.target.value))} sx={{ mb: 2 }} />
         </DialogContent>
         <DialogActions>
-          {editProduktId && (
-            <Button color="error" onClick={() => handleDeleteProdukt({ id: editProduktId, produkt_id: produktId!, name: "", bestand: produktBestand, preis: 0 })}>
-              Produkt entfernen
-            </Button>
-          )}
-          <Button onClick={() => setInhaltDialogOpen(false)}>Abbrechen</Button>
-          <Button variant="contained" onClick={handleSaveProdukt}>
-            {editProduktId ? "Speichern" : "Hinzufügen"}
-          </Button>
+          <Button onClick={() => setAddProduktDialogOpen(false)}>Abbrechen</Button>
+          <Button variant="contained" onClick={handleAddProdukt}>Hinzufügen</Button>
         </DialogActions>
       </Dialog>
 
