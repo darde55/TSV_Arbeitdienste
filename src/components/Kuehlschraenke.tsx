@@ -14,6 +14,7 @@ import {
   Typography,
   TextField,
   IconButton,
+  Grid,
   Stack,
   Select,
   MenuItem,
@@ -197,61 +198,75 @@ const Kuehlschraenke = () => {
 
   return (
     <Box sx={{ mt: 3 }}>
-      <Button variant="contained" startIcon={<AddIcon />} onClick={() => setEditOpen(true)}>
+      <Button variant="contained" startIcon={<AddIcon />} onClick={() => setEditOpen(true)} sx={{ mb: 2 }}>
         Kühlschrank hinzufügen
       </Button>
-      <Stack direction="row" spacing={3} sx={{ mt: 2, flexWrap: "wrap" }}>
+      <Grid container spacing={2}>
         {kuehlschraenke.map(k => (
-          <Card key={k.id} sx={{ width: 260, minHeight: 180, position: "relative", bgcolor: "#e3f2fd" }}>
-            <CardContent>
-              <Typography variant="h6">{k.name}</Typography>
-              <Typography variant="body2" sx={{ mb: 1 }}>Standort: {k.standort}</Typography>
-              <Typography variant="subtitle2">Inhalt:</Typography>
-              <Button
-                size="small"
-                variant="outlined"
-                sx={{ mb: 1 }}
-                onClick={() => openAddProduktDialog(k)}
-              >
-                Produkt hinzufügen
-              </Button>
-              {k.inhalt?.length > 0 ? (
-                <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none" }}>
-                  {k.inhalt.map(p => (
-                    <li
-                      key={p.id}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: 8,
-                        padding: "2px 0",
-                      }}
-                    >
-                      <span>
-                        {p.name} ({p.bestand})
-                      </span>
-                      <span>
-                        <IconButton size="small" onClick={() => openProduktDialog(k, p)}>
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                        <IconButton size="small" color="error" onClick={() => openProduktDialog(k, p)}>
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : <Typography color="text.secondary">leer</Typography>}
-            </CardContent>
-            <CardActions sx={{ position: "absolute", bottom: 8, left: 8 }}>
-              <Button size="small" color="error" variant="outlined" onClick={() => { setKuehlschrankToDelete(k); setDeleteKuehlschrankDialogOpen(true); }}>
-                Löschen
-              </Button>
-            </CardActions>
-          </Card>
+          <Grid item xs={12} sm={6} md={4} key={k.id}>
+            <Card sx={{ minHeight: 200, bgcolor: "#e3f2fd", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+              <CardContent>
+                <Typography variant="h6">{k.name}</Typography>
+                <Typography variant="body2" sx={{ mb: 1 }}>Standort: {k.standort}</Typography>
+                <Typography variant="subtitle2">Inhalt:</Typography>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  sx={{ mb: 1, mt: 1 }}
+                  fullWidth
+                  onClick={() => openAddProduktDialog(k)}
+                >
+                  Produkt hinzufügen
+                </Button>
+                <Stack spacing={1} sx={{ mt: 1 }}>
+                  {k.inhalt?.length > 0 ? (
+                    k.inhalt.map(p => (
+                      <Box
+                        key={p.id}
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          bgcolor: "white",
+                          borderRadius: 1,
+                          px: 1,
+                          py: 0.5,
+                          boxShadow: 1
+                        }}
+                      >
+                        <Typography sx={{ fontSize: 15, wordBreak: "break-word" }}>
+                          {p.name} ({p.bestand})
+                        </Typography>
+                        <Box>
+                          <IconButton size="small" onClick={() => openProduktDialog(k, p)}>
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" color="error" onClick={() => { setSelectedKuehlschrank(k); setSelectedProdukt(p); setProduktDialogOpen(true); }}>
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      </Box>
+                    ))
+                  ) : (
+                    <Typography color="text.secondary">leer</Typography>
+                  )}
+                </Stack>
+              </CardContent>
+              <CardActions sx={{ mt: "auto" }}>
+                <Button
+                  size="small"
+                  color="error"
+                  variant="outlined"
+                  fullWidth
+                  onClick={() => { setKuehlschrankToDelete(k); setDeleteKuehlschrankDialogOpen(true); }}
+                >
+                  Löschen
+                </Button>
+              </CardActions>
+            </Card>
+          </Grid>
         ))}
-      </Stack>
+      </Grid>
 
       {/* Dialog Kühlschrank anlegen */}
       <Dialog open={editOpen} onClose={() => setEditOpen(false)}>
@@ -338,12 +353,18 @@ const Kuehlschraenke = () => {
 
       <Box sx={{ mt: 4 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>Bestand je Kühlschrank & Produkt</Typography>
-        <BarChart
-          xAxis={[{ scaleType: 'band', data: chartData.map(d => d.name) }]}
-          series={[{ data: chartData.map(d => d.bestand), color: "#1976d2", label: "Bestand" }]}
-          height={300}
-          width={Math.max(400, chartData.length * 90)}
-        />
+        <Box sx={{
+          maxWidth: "100vw",
+          overflowX: "auto",
+          pb: 2
+        }}>
+          <BarChart
+            xAxis={[{ scaleType: 'band', data: chartData.map(d => d.name) }]}
+            series={[{ data: chartData.map(d => d.bestand), color: "#1976d2", label: "Bestand" }]}
+            height={300}
+            width={Math.max(400, chartData.length * 120)}
+          />
+        </Box>
       </Box>
 
       <Snackbar
