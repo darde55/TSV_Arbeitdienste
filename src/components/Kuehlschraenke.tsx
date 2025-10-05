@@ -57,7 +57,7 @@ const Kuehlschraenke = () => {
 
   const fetchKuehlschraenke = async () => {
     try {
-      const res = await api.get<Kuehlschrank[]>("/api/kiosk/kuehlschraenke");
+      const res = await api.get<Kuehlschrank[]>("/kiosk/kuehlschraenke");
       setKuehlschraenke(res.data);
     } catch {
       setSnack({ message: "Fehler beim Laden!", severity: "error" });
@@ -67,7 +67,7 @@ const Kuehlschraenke = () => {
   // Kühlschrank anlegen
   const handleAddKuehlschrank = async () => {
     try {
-      await api.post("/api/kiosk/kuehlschraenke", form);
+      await api.post("/kiosk/kuehlschraenke", form);
       setSnack({ message: "Kühlschrank hinzugefügt!", severity: "success" });
       setForm({ name: "", standort: "" });
       setEditOpen(false);
@@ -81,7 +81,7 @@ const Kuehlschraenke = () => {
   const handleDeleteKuehlschrank = async () => {
     if (!kuehlschrankToDelete) return;
     try {
-      await api.delete(`/api/kiosk/kuehlschraenke/${kuehlschrankToDelete.id}`);
+      await api.delete(`/kiosk/kuehlschraenke/${kuehlschrankToDelete.id}`);
       setSnack({ message: "Kühlschrank gelöscht!", severity: "success" });
       setDeleteKuehlschrankDialogOpen(false);
       setKuehlschrankToDelete(null);
@@ -111,7 +111,7 @@ const Kuehlschraenke = () => {
   const handleSaveProdukt = async () => {
     if (!selectedKuehlschrank) return;
     try {
-      await api.post(`/api/kiosk/kuehlschraenke/${selectedKuehlschrank.id}/inhalt`, {
+      await api.post(`/kiosk/kuehlschraenke/${selectedKuehlschrank.id}/inhalt`, {
         name: produktName,
         bestand: produktBestand,
         produktId: editProduktId ?? undefined,
@@ -122,7 +122,7 @@ const Kuehlschraenke = () => {
       setProduktBestand(0);
       fetchKuehlschraenke();
       // Refresh Inhalt
-      const updated = await api.get<Kuehlschrank>(`/api/kiosk/kuehlschraenke/${selectedKuehlschrank.id}`);
+      const updated = await api.get<Kuehlschrank>(`/kiosk/kuehlschraenke/${selectedKuehlschrank.id}`);
       setSelectedKuehlschrank(updated.data);
     } catch {
       setSnack({ message: "Fehler beim Speichern!", severity: "error" });
@@ -133,14 +133,14 @@ const Kuehlschraenke = () => {
   const handleDeleteProdukt = async () => {
     if (!selectedKuehlschrank || !editProduktId) return;
     try {
-      await api.delete(`/api/kiosk/kuehlschraenke/${selectedKuehlschrank.id}/inhalt/${editProduktId}`);
+      await api.delete(`/kiosk/kuehlschraenke/${selectedKuehlschrank.id}/inhalt/${editProduktId}`);
       setSnack({ message: "Produkt entfernt!", severity: "success" });
       setEditProduktId(null);
       setProduktName("");
       setProduktBestand(0);
       fetchKuehlschraenke();
       // Refresh Inhalt
-      const updated = await api.get<Kuehlschrank>(`/api/kiosk/kuehlschraenke/${selectedKuehlschrank.id}`);
+      const updated = await api.get<Kuehlschrank>(`/kiosk/kuehlschraenke/${selectedKuehlschrank.id}`);
       setSelectedKuehlschrank(updated.data);
     } catch {
       setSnack({ message: "Fehler beim Löschen!", severity: "error" });
