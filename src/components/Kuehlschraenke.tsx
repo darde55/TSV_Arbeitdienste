@@ -14,13 +14,15 @@ import {
   Typography,
   TextField,
   IconButton,
-  Grid,
   Stack,
   Select,
   MenuItem,
   FormControl,
-  InputLabel
+  InputLabel,
+  ToggleButton,
+  ToggleButtonGroup
 } from "@mui/material";
+import Grid from "@mui/material/Grid";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -56,16 +58,19 @@ const Kuehlschraenke = () => {
   const [deleteKuehlschrankDialogOpen, setDeleteKuehlschrankDialogOpen] = useState(false);
   const [kuehlschrankToDelete, setKuehlschrankToDelete] = useState<Kuehlschrank | null>(null);
 
-  // Dialog für Produktbearbeitung (Bestand ändern/löschen)
+  // Produktbearbeitung/Dialog
   const [produktDialogOpen, setProduktDialogOpen] = useState(false);
   const [selectedKuehlschrank, setSelectedKuehlschrank] = useState<Kuehlschrank | null>(null);
   const [selectedProdukt, setSelectedProdukt] = useState<KuehlschrankProdukt | null>(null);
   const [produktBestand, setProduktBestand] = useState<number>(0);
 
-  // Dialog für neues Produkt im Kühlschrank
+  // Produkt hinzufügen Dialog
   const [addProduktDialogOpen, setAddProduktDialogOpen] = useState(false);
   const [addProduktId, setAddProduktId] = useState<number | null>(null);
   const [addProduktBestand, setAddProduktBestand] = useState<number>(0);
+
+  // Toggle für Balkendiagramm
+  const [diagrammModus, setDiagrammModus] = useState<"einzeln" | "gesamt">("einzeln");
 
   useEffect(() => {
     fetchKuehlschraenke();
@@ -185,26 +190,44 @@ const Kuehlschraenke = () => {
     }
   };
 
-  // --- Balkendiagramm: Bestand je Produkt & Kühlschrank ---
-  const chartData: { name: string; bestand: number }[] = [];
+  // --- Balkendiagramm: Einzelbestand oder Gesamtbestand ---
+  const einzelLabels: string[] = [];
+  const einzelData: number[] = [];
   kuehlschraenke.forEach(k => {
     k.inhalt.forEach(p => {
-      chartData.push({
-        name: `${p.name} (${k.name})`,
-        bestand: p.bestand
-      });
+      einzelLabels.push(`${p.name} (${k.name})`);
+      einzelData.push(p.bestand);
     });
   });
 
+  // Gesamtbestand je Produkt
+  const gesamtMap = new Map<string, number>();
+  kuehlschraenke.forEach(k => {
+    k.inhalt.forEach(p => {
+      gesamtMap.set(
+        p.name,
+        (gesamtMap.get(p.name) ?? 0) + p.bestand
+      );
+    });
+  });
+  const gesamtLabels = Array.from(gesamtMap.keys());
+  const gesamtData = Array.from(gesamtMap.values());
+
   return (
-    <Box sx={{ mt: 3 }}>
+    <Box sx={{ mt: 3, px: { xs: 1, sm: 2, md: 6 } }}>
       <Button variant="contained" startIcon={<AddIcon />} onClick={() => setEditOpen(true)} sx={{ mb: 2 }}>
         Kühlschrank hinzufügen
       </Button>
       <Grid container spacing={2}>
         {kuehlschraenke.map(k => (
           <Grid item xs={12} sm={6} md={4} key={k.id}>
-            <Card sx={{ minHeight: 200, bgcolor: "#e3f2fd", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+            <Card sx={{
+              minHeight: 210,
+              bgcolor: "#e3f2fd",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between"
+            }}>
               <CardContent>
                 <Typography variant="h6">{k.name}</Typography>
                 <Typography variant="body2" sx={{ mb: 1 }}>Standort: {k.standort}</Typography>
@@ -237,7 +260,7 @@ const Kuehlschraenke = () => {
                         <Typography sx={{ fontSize: 15, wordBreak: "break-word" }}>
                           {p.name} ({p.bestand})
                         </Typography>
-                        <Box>
+                        <Box sx={{ display: "flex", gap: 0.5 }}>
                           <IconButton size="small" onClick={() => openProduktDialog(k, p)}>
                             <EditIcon fontSize="small" />
                           </IconButton>
@@ -267,6 +290,46 @@ const Kuehlschraenke = () => {
           </Grid>
         ))}
       </Grid>
+
+      {/* Umschalter für Diagramm */}
+      <Box sx={{ mt: 4, mb: 1 }}>
+        <ToggleButtonGroup
+          color="primary"
+          value={diagrammModus}
+          exclusive
+          onChange={(_, value) => value && setDiagrammModus(value)}
+          sx={{ mb: 2 }}
+        >
+          <ToggleButton value="einzeln">Bestand je Kühlschrank & Produkt</ToggleButton>
+          <ToggleButton value="gesamt">Gesamtbestand je Produkt</ToggleButton>
+        </ToggleButtonGroup>
+        <Typography variant="h6" sx={{ mb: 2 }}>
+          {diagrammModus === "einzeln"
+            ? "Bestand je Kühlschrank & Produkt"
+            : "Gesamtbestand je Produkt"}
+        </Typography>
+        <Box sx={{
+          maxWidth: "100vw",
+          overflowX: "auto",
+          pb: 2
+        }}>
+          <BarChart
+            xAxis={[
+              { scaleType: 'band', data: diagrammModus === "einzeln" ? einzelLabels : gesamtLabels }
+            ]}
+            series={[
+              {
+                data: diagrammModus === "einzeln" ? einzelData : gesamtData,
+                color: "#1976d2",
+                label: "Bestand",
+                valueFormatter: (value: number | null) => value === null ? "" : value.toString()
+              }
+            ]}
+            height={340}
+            width={Math.max(400, (diagrammModus === "einzeln" ? einzelLabels.length : gesamtLabels.length) * 140)}
+          />
+        </Box>
+      </Box>
 
       {/* Dialog Kühlschrank anlegen */}
       <Dialog open={editOpen} onClose={() => setEditOpen(false)}>
@@ -350,22 +413,6 @@ const Kuehlschraenke = () => {
           <Button variant="contained" onClick={handleAddProdukt}>Hinzufügen</Button>
         </DialogActions>
       </Dialog>
-
-      <Box sx={{ mt: 4 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>Bestand je Kühlschrank & Produkt</Typography>
-        <Box sx={{
-          maxWidth: "100vw",
-          overflowX: "auto",
-          pb: 2
-        }}>
-          <BarChart
-            xAxis={[{ scaleType: 'band', data: chartData.map(d => d.name) }]}
-            series={[{ data: chartData.map(d => d.bestand), color: "#1976d2", label: "Bestand" }]}
-            height={300}
-            width={Math.max(400, chartData.length * 120)}
-          />
-        </Box>
-      </Box>
 
       <Snackbar
         open={!!snack.message}
