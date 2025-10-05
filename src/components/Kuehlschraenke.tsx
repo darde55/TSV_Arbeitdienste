@@ -50,7 +50,7 @@ const Kuehlschraenke = () => {
 
   const fetchKuehlschraenke = async () => {
     try {
-      const res = await api.get<Kuehlschrank[]>("/kiosk/kuehlschraenke");
+      const res = await api.get<Kuehlschrank[]>("/api/kiosk/kuehlschraenke");
       setKuehlschraenke(res.data);
     } catch (err: unknown) {
       if (typeof err === "object" && err !== null && "response" in err) {
@@ -67,7 +67,7 @@ const Kuehlschraenke = () => {
   // Kühlschrank anlegen
   const handleAddKuehlschrank = async () => {
     try {
-      await api.post("/kiosk/kuehlschraenke", form);
+      await api.post("/api/kiosk/kuehlschraenke", form);
       setSnack("Kühlschrank hinzugefügt!");
       setForm({ name: "", standort: "" });
       setEditOpen(false);
@@ -88,7 +88,7 @@ const Kuehlschraenke = () => {
   const handleDeleteKuehlschrank = async () => {
     if (!kuehlschrankToDelete) return;
     try {
-      await api.delete(`/kiosk/kuehlschraenke/${kuehlschrankToDelete.id}`);
+      await api.delete(`/api/kiosk/kuehlschraenke/${kuehlschrankToDelete.id}`);
       setSnack("Kühlschrank gelöscht!");
       setDeleteKuehlschrankDialogOpen(false);
       setKuehlschrankToDelete(null);
