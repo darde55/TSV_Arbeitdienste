@@ -1,14 +1,18 @@
 import React, { useEffect, useState } from "react";
-import { Table, TableHead, TableRow, TableCell, TableBody, Button, TextField, Dialog, DialogTitle, DialogContent, DialogActions, Snackbar, Alert } from "@mui/material";
+import { Table, TableHead, TableRow, TableCell, TableBody, Button, TextField, Dialog, DialogTitle, DialogContent, DialogActions, Snackbar, Alert, Select, MenuItem, FormControl, InputLabel } from "@mui/material";
 import api from "../api/api";
 
+type Produkt = { id: number; name: string; preis: number; kategorie: string };
 
-type Produkt = { id: number; name: string; preis: number };
+const kategorien = [
+  { value: "Alkoholfrei", label: "Alkoholfreie Getränke" },
+  { value: "Alkoholisch", label: "Alkoholische Getränke" }
+];
 
 const Preisliste: React.FC = () => {
   const [produkte, setProdukte] = useState<Produkt[]>([]);
   const [editOpen, setEditOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", preis: 0 });
+  const [form, setForm] = useState({ name: "", preis: 0, kategorie: kategorien[0].value });
   const [snack, setSnack] = useState("");
 
   useEffect(() => {
@@ -23,7 +27,7 @@ const Preisliste: React.FC = () => {
   const handleAddProdukt = async () => {
     await api.post("/kiosk/preisliste", form);
     setEditOpen(false);
-    setForm({ name: "", preis: 0 });
+    setForm({ name: "", preis: 0, kategorie: kategorien[0].value });
     setSnack("Produkt hinzugefügt!");
     fetchProdukte();
   };
@@ -38,6 +42,7 @@ const Preisliste: React.FC = () => {
           <TableRow>
             <TableCell>Name</TableCell>
             <TableCell>Preis (€)</TableCell>
+            <TableCell>Kategorie</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -45,6 +50,7 @@ const Preisliste: React.FC = () => {
             <TableRow key={p.id}>
               <TableCell>{p.name}</TableCell>
               <TableCell>{p.preis.toFixed(2)}</TableCell>
+              <TableCell>{kategorien.find(k => k.value === p.kategorie)?.label || p.kategorie}</TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -65,7 +71,21 @@ const Preisliste: React.FC = () => {
             fullWidth
             value={form.preis}
             onChange={e => setForm(f => ({ ...f, preis: parseFloat(e.target.value) }))}
+            sx={{ mb: 2 }}
           />
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel id="kategorie-label">Kategorie</InputLabel>
+            <Select
+              labelId="kategorie-label"
+              label="Kategorie"
+              value={form.kategorie}
+              onChange={e => setForm(f => ({ ...f, kategorie: e.target.value as string }))}
+            >
+              {kategorien.map(k => (
+                <MenuItem key={k.value} value={k.value}>{k.label}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditOpen(false)}>Abbrechen</Button>
