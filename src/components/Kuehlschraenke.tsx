@@ -38,7 +38,7 @@ const Kuehlschraenke = () => {
   const [kuehlschraenke, setKuehlschraenke] = useState<Kuehlschrank[]>([]);
   const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState({ name: "", standort: "" });
-  const [snack, setSnack] = useState<string>("");
+  const [snack, setSnack] = useState<{ message: string; severity: "success" | "error" }>({ message: "", severity: "success" });
   const [deleteKuehlschrankDialogOpen, setDeleteKuehlschrankDialogOpen] = useState(false);
   const [kuehlschrankToDelete, setKuehlschrankToDelete] = useState<Kuehlschrank | null>(null);
 
@@ -60,7 +60,7 @@ const Kuehlschraenke = () => {
       const res = await api.get<Kuehlschrank[]>("/api/kiosk/kuehlschraenke");
       setKuehlschraenke(res.data);
     } catch {
-      setSnack("Fehler beim Laden!");
+      setSnack({ message: "Fehler beim Laden!", severity: "error" });
     }
   };
 
@@ -68,12 +68,12 @@ const Kuehlschraenke = () => {
   const handleAddKuehlschrank = async () => {
     try {
       await api.post("/api/kiosk/kuehlschraenke", form);
-      setSnack("Kühlschrank hinzugefügt!");
+      setSnack({ message: "Kühlschrank hinzugefügt!", severity: "success" });
       setForm({ name: "", standort: "" });
       setEditOpen(false);
       fetchKuehlschraenke();
     } catch {
-      setSnack("Fehler beim Hinzufügen!");
+      setSnack({ message: "Fehler beim Hinzufügen!", severity: "error" });
     }
   };
 
@@ -82,12 +82,12 @@ const Kuehlschraenke = () => {
     if (!kuehlschrankToDelete) return;
     try {
       await api.delete(`/api/kiosk/kuehlschraenke/${kuehlschrankToDelete.id}`);
-      setSnack("Kühlschrank gelöscht!");
+      setSnack({ message: "Kühlschrank gelöscht!", severity: "success" });
       setDeleteKuehlschrankDialogOpen(false);
       setKuehlschrankToDelete(null);
       fetchKuehlschraenke();
     } catch {
-      setSnack("Fehler beim Löschen!");
+      setSnack({ message: "Fehler beim Löschen!", severity: "error" });
     }
   };
 
@@ -116,15 +116,16 @@ const Kuehlschraenke = () => {
         bestand: produktBestand,
         produktId: editProduktId ?? undefined,
       });
-      setSnack(editProduktId ? "Produkt geändert!" : "Produkt hinzugefügt!");
+      setSnack({ message: editProduktId ? "Produkt geändert!" : "Produkt hinzugefügt!", severity: "success" });
       setEditProduktId(null);
       setProduktName("");
       setProduktBestand(0);
       fetchKuehlschraenke();
+      // Refresh Inhalt
       const updated = await api.get<Kuehlschrank>(`/api/kiosk/kuehlschraenke/${selectedKuehlschrank.id}`);
       setSelectedKuehlschrank(updated.data);
     } catch {
-      setSnack("Fehler beim Speichern!");
+      setSnack({ message: "Fehler beim Speichern!", severity: "error" });
     }
   };
 
@@ -133,15 +134,16 @@ const Kuehlschraenke = () => {
     if (!selectedKuehlschrank || !editProduktId) return;
     try {
       await api.delete(`/api/kiosk/kuehlschraenke/${selectedKuehlschrank.id}/inhalt/${editProduktId}`);
-      setSnack("Produkt entfernt!");
+      setSnack({ message: "Produkt entfernt!", severity: "success" });
       setEditProduktId(null);
       setProduktName("");
       setProduktBestand(0);
       fetchKuehlschraenke();
+      // Refresh Inhalt
       const updated = await api.get<Kuehlschrank>(`/api/kiosk/kuehlschraenke/${selectedKuehlschrank.id}`);
       setSelectedKuehlschrank(updated.data);
     } catch {
-      setSnack("Fehler beim Löschen!");
+      setSnack({ message: "Fehler beim Löschen!", severity: "error" });
     }
   };
 
@@ -234,12 +236,14 @@ const Kuehlschraenke = () => {
       </Dialog>
 
       <Snackbar
-        open={!!snack}
+        open={!!snack.message}
         autoHideDuration={3000}
-        onClose={() => setSnack("")}
+        onClose={() => setSnack({ message: "", severity: "success" })}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
-        <Alert severity="success" onClose={() => setSnack("")}>{snack}</Alert>
+        <Alert severity={snack.severity} onClose={() => setSnack({ message: "", severity: "success" })}>
+          {snack.message}
+        </Alert>
       </Snackbar>
     </Box>
   );
