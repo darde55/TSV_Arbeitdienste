@@ -215,10 +215,11 @@ const Dashboard: React.FC = () => {
   const usersFiltered = users.filter(u => u.role !== "admin");
   const tableHeaderSx = { background: "#f5f5f5", fontWeight: 700 };
 
-  function offenePlaetze(t: Termin) {
+  // Funktion gibt jetzt immer eine Zahl zurück!
+  function offenePlaetze(t: Termin): number {
     const max = t.anzahl ?? 0;
     const teilnehmer = t.teilnehmer ? t.teilnehmer.length : 0;
-    return max > 0 ? Math.max(0, max - teilnehmer) : "-";
+    return max > 0 ? Math.max(0, max - teilnehmer) : 0;
   }
 
   // Accordion-Logik für den nächsten Termin
@@ -314,7 +315,7 @@ const Dashboard: React.FC = () => {
                   }
                 </Box>
                 <Box>
-                  {!userTerminIds.has(naechsterTermin.id) &&
+                  {!userTerminIds.has(naechsterTermin.id) && offenePlaetze(naechsterTermin) > 0 &&
                     <Button
                       variant="contained"
                       color="error"
@@ -388,7 +389,7 @@ const Dashboard: React.FC = () => {
                           }
                         </Box>
                         <Box>
-                          {!userTerminIds.has(t.id) &&
+                          {!userTerminIds.has(t.id) && offenePlaetze(t) > 0 &&
                             <Button
                               variant="contained"
                               color="error"

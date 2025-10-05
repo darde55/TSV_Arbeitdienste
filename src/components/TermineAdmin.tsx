@@ -1,36 +1,13 @@
 import React, { useEffect, useState } from "react";
 import {
-  Paper,
-  Typography,
-  TextField,
-  Button,
-  List,
-  ListItem,
-  ListItemText,
-  Box,
-  Alert,
-  Divider,
-  IconButton,
-  FormControlLabel,
-  Checkbox,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Popover
+  Paper, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  IconButton, Box, Select, MenuItem, FormControl, InputLabel, Snackbar, Alert, Button,
+  Dialog, DialogTitle, DialogContent, DialogActions, List, ListItem, ListItemText, CircularProgress,
+  TextField, Pagination
 } from "@mui/material";
-import { TimePicker } from "@mui/x-date-pickers/TimePicker";
-import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
-import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
-import { de } from "date-fns/locale";
-import DeleteIcon from "@mui/icons-material/Delete";
-import EditIcon from "@mui/icons-material/Edit";
-import RemoveCircleIcon from "@mui/icons-material/RemoveCircle";
-import AddIcon from "@mui/icons-material/Add";
+import DeleteIcon from '@mui/icons-material/Delete';
+import InfoIcon from '@mui/icons-material/Info';
 import api from "../api/api";
-import type { SelectChangeEvent } from "@mui/material/Select";
-
-type TerminKategorie = "Schiedsrichter" | "Grillen" | "Sonstiges";
 
 type Termin = {
   id: number;
@@ -44,385 +21,245 @@ type Termin = {
   ansprechpartner_name?: string;
   ansprechpartner_mail?: string;
   score?: number;
-  stichtagsmail_senden?: boolean;
-  zufallsauswahl?: boolean;
-  teilnehmer?: { username: string }[];
-  kategorie?: TerminKategorie;
 };
 
-type User = {
+type Teilnehmer = {
   username: string;
-  email: string;
-  role: string;
-  score: number;
+  email?: string;
+  score?: number;
 };
 
-const initialTerminState: Omit<Termin, "id" | "teilnehmer"> = {
-  titel: "",
-  beschreibung: "",
-  datum: "",
-  beginn: "",
-  ende: "",
-  anzahl: undefined,
-  stichtag: "",
-  ansprechpartner_name: "",
-  ansprechpartner_mail: "",
-  score: 0,
-  stichtagsmail_senden: false,
-  zufallsauswahl: false,
-  kategorie: "Sonstiges"
-};
+const PAGE_SIZE = 10;
 
-const kategorien: TerminKategorie[] = ["Schiedsrichter", "Grillen", "Sonstiges"];
-
-const TermineAdmin: React.FC = () => {
+const TerminArchiv: React.FC = () => {
   const [termine, setTermine] = useState<Termin[]>([]);
-  const [form, setForm] = useState<Omit<Termin, "id" | "teilnehmer">>(initialTerminState);
-  const [editTermin, setEditTermin] = useState<Termin | null>(null);
-  const [message, setMessage] = useState<string>("");
-  const [users, setUsers] = useState<User[]>([]);
-  const [userPopover, setUserPopover] = useState<{ anchorEl: HTMLElement | null, terminId: number | null }>({ anchorEl: null, terminId: null });
-  const [selectedUserToAdd, setSelectedUserToAdd] = useState<string>("");
+  const [sortBy, setSortBy] = useState<"datum" | "titel">("datum");
+  const [snackOpen, setSnackOpen] = useState(false);
+  const [error, setError] = useState<string>("");
+  const [search, setSearch] = useState<string>("");
+  const [page, setPage] = useState(1);
 
-  useEffect(() => {
-    fetchTermine();
-    fetchUsers();
-  }, []);
+  // Details-Dialog
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [selectedTermin, setSelectedTermin] = useState<Termin | null>(null);
+  const [teilnehmer, setTeilnehmer] = useState<Teilnehmer[]>([]);
+  const [teilnehmerLoading, setTeilnehmerLoading] = useState(false);
+  const [detailsError, setDetailsError] = useState<string>("");
 
   const fetchTermine = async () => {
     try {
       const res = await api.get<Termin[]>("/termine");
       setTermine(res.data);
-    } catch (err) {
-      setTermine([]);
-      setMessage("Fehler beim Laden der Termine.");
-      if (err) console.error(err);
+    } catch {
+      setError("Fehler beim Laden der Termine.");
     }
   };
 
-  const fetchUsers = async () => {
-    try {
-      const res = await api.get<User[]>("/users");
-      setUsers(res.data);
-    } catch (err) {
-      setUsers([]);
-      setMessage("Fehler beim Laden der User.");
-      if (err) console.error(err);
-    }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type } = e.target;
-    setForm(prev => ({
-      ...prev,
-      [name]: type === "number" ? Number(value) : value
-    }));
-  };
-
-  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, checked } = e.target;
-    setForm(prev => ({
-      ...prev,
-      [name]: checked
-    }));
-  };
-
-  const handleKategorieChange = (e: SelectChangeEvent) => {
-    setForm(prev => ({
-      ...prev,
-      kategorie: e.target.value as TerminKategorie
-    }));
-  };
-
-  const parseTime = (value?: string): Date | null => {
-    if (!value) return null;
-    const [hour, minute] = value.split(":");
-    const d = new Date();
-    d.setHours(Number(hour));
-    d.setMinutes(Number(minute));
-    d.setSeconds(0);
-    d.setMilliseconds(0);
-    return d;
-  };
-
-  const formatTime = (date: Date | null): string => {
-    if (!date) return "";
-    const h = date.getHours().toString().padStart(2, "0");
-    const m = date.getMinutes().toString().padStart(2, "0");
-    return `${h}:${m}`;
-  };
-
-  const handleCreate = async () => {
-    try {
-      await api.post("/termine", form);
-      setMessage("Termin erfolgreich angelegt!");
-      setForm(initialTerminState);
-      fetchTermine();
-    } catch (err) {
-      setMessage("Fehler beim Anlegen!");
-      if (err) console.error(err);
-    }
-  };
-
-  const handleEdit = (termin: Termin) => {
-    setEditTermin(termin);
-    setForm({
-      ...termin,
-      beginn: termin.beginn ?? "",
-      ende: termin.ende ?? "",
-      stichtag: termin.stichtag ?? "",
-      beschreibung: termin.beschreibung ?? "",
-      ansprechpartner_name: termin.ansprechpartner_name ?? "",
-      ansprechpartner_mail: termin.ansprechpartner_mail ?? "",
-      score: termin.score ?? 0,
-      stichtagsmail_senden: termin.stichtagsmail_senden ?? false,
-      zufallsauswahl: termin.zufallsauswahl ?? false,
-      anzahl: termin.anzahl ?? undefined,
-      kategorie: termin.kategorie ?? "Sonstiges"
-    });
-  };
-
-  const handleUpdate = async () => {
-    if (!editTermin) return;
-    try {
-      await api.put(`/termine/${editTermin.id}`, form);
-      setMessage("Termin erfolgreich bearbeitet!");
-      setEditTermin(null);
-      setForm(initialTerminState);
-      fetchTermine();
-    } catch (err) {
-      setMessage("Fehler beim Bearbeiten!");
-      if (err) console.error(err);
-    }
-  };
+  useEffect(() => {
+    fetchTermine();
+  }, []);
 
   const handleDelete = async (id: number) => {
     try {
       await api.delete(`/termine/${id}`);
-      setMessage("Termin gelöscht");
+      setSnackOpen(true);
       fetchTermine();
-    } catch (err) {
-      setMessage("Fehler beim Löschen!");
-      if (err) console.error(err);
+    } catch {
+      setError("Fehler beim Löschen des Termins.");
     }
   };
 
-  // User-Popover für Hinzufügen öffnen/schließen
-  const handleOpenUserPopover = (event: React.MouseEvent<HTMLElement>, terminId: number) => {
-    setUserPopover({ anchorEl: event.currentTarget, terminId });
-    setSelectedUserToAdd("");
-  };
-
-  const handleCloseUserPopover = () => {
-    setUserPopover({ anchorEl: null, terminId: null });
-    setSelectedUserToAdd("");
-  };
-
-  const handleAddUserToTermin = async () => {
-    if (!userPopover.terminId || !selectedUserToAdd) return;
+  const handleShowDetails = async (termin: Termin) => {
+    setDetailsOpen(true);
+    setSelectedTermin(termin);
+    setTeilnehmer([]);
+    setTeilnehmerLoading(true);
+    setDetailsError("");
     try {
-      await api.post(`/termine/${userPopover.terminId}/teilnehmen`, { username: selectedUserToAdd });
-      setMessage(`User ${selectedUserToAdd} zum Termin hinzugefügt!`);
-      setSelectedUserToAdd("");
-      handleCloseUserPopover();
-      fetchTermine();
-    } catch (err) {
-      setMessage("Fehler beim Hinzufügen des Users zum Termin!");
-      if (err) console.error(err);
+      const res = await api.get<Teilnehmer[]>(`/termine/${termin.id}/teilnehmer`);
+      setTeilnehmer(res.data);
+    } catch {
+      setDetailsError("Fehler beim Laden der Teilnehmer.");
     }
+    setTeilnehmerLoading(false);
   };
 
-  const handleRemoveUserFromTermin = async (terminId: number, username: string) => {
-    try {
-      await api.delete(`/termine/${terminId}/teilnehmer/${username}`);
-      setMessage(`User ${username} vom Termin entfernt!`);
-      fetchTermine();
-    } catch (err) {
-      setMessage("Fehler beim Entfernen des Users vom Termin!");
-      if (err) console.error(err);
-    }
+  const handleCloseDetails = () => {
+    setDetailsOpen(false);
+    setSelectedTermin(null);
+    setTeilnehmer([]);
+    setDetailsError("");
   };
 
-  const aktuelleTermine = termine.filter(t => {
-    const dateOnly = t.datum.slice(0, 10);
-    const ende = t.ende && /^\d{2}:\d{2}$/.test(t.ende) ? t.ende : "10:00";
-    const endDate = new Date(`${dateOnly}T${ende}`);
-    return endDate >= new Date();
+  // Suche und Sortierung
+  const filteredTermine = termine.filter(t => {
+    const query = search.toLowerCase();
+    return t.titel.toLowerCase().includes(query) ||
+      new Date(t.datum).toLocaleDateString("de-DE").includes(query);
   });
 
+  const sortedTermine = [...filteredTermine].sort((a, b) => {
+    if (sortBy === "datum") {
+      return new Date(a.datum).getTime() - new Date(b.datum).getTime();
+    }
+    return a.titel.localeCompare(b.titel, "de", { sensitivity: "base" });
+  });
+
+  // Pagination
+  const pageCount = Math.ceil(sortedTermine.length / PAGE_SIZE);
+  const pagedTermine = sortedTermine.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  useEffect(() => {
+    setPage(1); // Seite zurücksetzen, wenn Suche oder Sortierung geändert wird
+  }, [search, sortBy, termine]);
+
   return (
-    <Paper sx={{ p: 3 }}>
-      <Typography variant="h6" mb={2}>Terminverwaltung</Typography>
-      {message && <Alert severity={message.includes("Fehler") ? "error" : "success"} sx={{ mb: 2 }}>{message}</Alert>}
-      <Typography mb={1}>{editTermin ? "Termin bearbeiten:" : "Neuen Termin anlegen:"}</Typography>
-      <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={de}>
-        <Box mb={2} display="flex" flexWrap="wrap" gap={1}>
-          <TextField label="Titel" name="titel" value={form.titel} onChange={handleChange} size="small" />
-          <TextField label="Beschreibung" name="beschreibung" value={form.beschreibung} onChange={handleChange} size="small" />
-          <FormControl size="small" sx={{ minWidth: 140 }}>
-            <InputLabel id="kategorie-label">Kategorie</InputLabel>
-            <Select
-              labelId="kategorie-label"
-              name="kategorie"
-              label="Kategorie"
-              value={form.kategorie ?? "Sonstiges"}
-              onChange={handleKategorieChange}
-            >
-              {kategorien.map(kat => (
-                <MenuItem key={kat} value={kat}>{kat}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <TextField label="Datum" name="datum" type="date" value={form.datum} onChange={handleChange} size="small" InputLabelProps={{ shrink: true }} />
-          <TimePicker
-            label="Beginn"
-            value={parseTime(form.beginn)}
-            onChange={value => setForm(prev => ({
-              ...prev,
-              beginn: formatTime(value as Date)
-            }))}
-            ampm={false}
-            slotProps={{
-              textField: { size: "small" }
-            }}
+    <Paper sx={{ p: 2, mt: 2 }}>
+      <Typography variant="h6" mb={2}>Termin-Archiv</Typography>
+      <Box sx={{ mb: 2, display: "flex", alignItems: "center", gap: 2 }}>
+        <TextField
+          size="small"
+          label="Suche"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        <FormControl size="small">
+          <InputLabel id="sort-label">Sortieren nach</InputLabel>
+          <Select
+            labelId="sort-label"
+            value={sortBy}
+            label="Sortieren nach"
+            onChange={e => setSortBy(e.target.value as "datum" | "titel")}
+            sx={{ minWidth: 140 }}
+          >
+            <MenuItem value="datum">Datum</MenuItem>
+            <MenuItem value="titel">Alphabetisch</MenuItem>
+          </Select>
+        </FormControl>
+      </Box>
+      <TableContainer>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Titel</TableCell>
+              <TableCell>Datum</TableCell>
+              <TableCell>Beginn</TableCell>
+              <TableCell>Ende</TableCell>
+              <TableCell>Details</TableCell>
+              <TableCell>Löschen</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {pagedTermine.map(t => (
+              <TableRow key={t.id}>
+                <TableCell>{t.titel}</TableCell>
+                <TableCell>{new Date(t.datum).toLocaleDateString("de-DE")}</TableCell>
+                <TableCell>{t.beginn}</TableCell>
+                <TableCell>{t.ende}</TableCell>
+                <TableCell>
+                  <IconButton color="primary" onClick={() => handleShowDetails(t)}>
+                    <InfoIcon />
+                  </IconButton>
+                </TableCell>
+                <TableCell>
+                  <IconButton color="error" onClick={() => handleDelete(t.id)}>
+                    <DeleteIcon />
+                  </IconButton>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+      <Box sx={{ mt: 1, display: "flex", justifyContent: "center" }}>
+        {pageCount > 1 && (
+          <Pagination
+            count={pageCount}
+            page={page}
+            onChange={(_, value) => setPage(value)}
+            color="primary"
+            size="small"
           />
-          <TimePicker
-            label="Ende"
-            value={parseTime(form.ende)}
-            onChange={value => setForm(prev => ({
-              ...prev,
-              ende: formatTime(value as Date)
-            }))}
-            ampm={false}
-            slotProps={{
-              textField: { size: "small" }
-            }}
-          />
-          <TextField label="Anzahl" name="anzahl" type="number" value={form.anzahl ?? ""} onChange={handleChange} size="small" />
-          <TextField label="Stichtag" name="stichtag" type="date" value={form.stichtag} onChange={handleChange} size="small" InputLabelProps={{ shrink: true }} />
-          <TextField label="Ansprechpartner Name" name="ansprechpartner_name" value={form.ansprechpartner_name} onChange={handleChange} size="small" />
-          <TextField label="Ansprechpartner Mail" name="ansprechpartner_mail" value={form.ansprechpartner_mail} onChange={handleChange} size="small" />
-          <TextField label="Score" name="score" type="number" value={form.score ?? ""} onChange={handleChange} size="small" />
-          <FormControlLabel
-            control={
-              <Checkbox
-                name="stichtagsmail_senden"
-                checked={!!form.stichtagsmail_senden}
-                onChange={handleCheckboxChange}
-              />
-            }
-            label="Stichtagsmail senden"
-          />
-          <FormControlLabel
-            control={
-              <Checkbox
-                name="zufallsauswahl"
-                checked={!!form.zufallsauswahl}
-                onChange={handleCheckboxChange}
-              />
-            }
-            label="Zufallsauswahl aktivieren"
-          />
-          {!editTermin ? (
-            <Button variant="contained" onClick={handleCreate}>Anlegen</Button>
-          ) : (
+        )}
+      </Box>
+      <Snackbar
+        open={snackOpen}
+        autoHideDuration={4000}
+        onClose={() => setSnackOpen(false)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert severity="success" onClose={() => setSnackOpen(false)}>
+          Termin wurde gelöscht!
+        </Alert>
+      </Snackbar>
+      {error && (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      <Dialog open={detailsOpen} onClose={handleCloseDetails}>
+        <DialogTitle>Termin-Details</DialogTitle>
+        <DialogContent sx={{ minWidth: 350 }}>
+          {selectedTermin && (
             <>
-              <Button variant="contained" color="secondary" onClick={handleUpdate}>Speichern</Button>
-              <Button variant="outlined" color="error" onClick={() => { setEditTermin(null); setForm(initialTerminState); }}>Abbrechen</Button>
+              <Typography>
+                <b>Titel:</b> {selectedTermin.titel}
+              </Typography>
+              <Typography>
+                <b>Beschreibung:</b> {selectedTermin.beschreibung || "-"}
+              </Typography>
+              <Typography>
+                <b>Datum:</b> {new Date(selectedTermin.datum).toLocaleDateString("de-DE")}
+              </Typography>
+              <Typography>
+                <b>Beginn:</b> {selectedTermin.beginn}
+              </Typography>
+              <Typography>
+                <b>Ende:</b> {selectedTermin.ende}
+              </Typography>
+              <Typography>
+                <b>Plätze:</b> {selectedTermin.anzahl}
+              </Typography>
+              <Typography>
+                <b>Stichtag:</b> {selectedTermin.stichtag ? new Date(selectedTermin.stichtag).toLocaleDateString("de-DE") : "-"}
+              </Typography>
+              <Typography>
+                <b>Ansprechpartner:</b> {selectedTermin.ansprechpartner_name} {selectedTermin.ansprechpartner_mail && `(${selectedTermin.ansprechpartner_mail})`}
+              </Typography>
+              <Typography>
+                <b>Score:</b> {selectedTermin.score}
+              </Typography>
+              <Typography sx={{ mt: 2, mb: 1 }}>
+                <b>Teilnehmer:</b>
+              </Typography>
+              {teilnehmerLoading ? (
+                <CircularProgress size={24} />
+              ) : detailsError ? (
+                <Alert severity="error">{detailsError}</Alert>
+              ) : teilnehmer.length === 0 ? (
+                <Typography>Keine Teilnehmer eingetragen.</Typography>
+              ) : (
+                <List dense>
+                  {teilnehmer.map(u => (
+                    <ListItem key={u.username}>
+                      <ListItemText
+                        primary={u.username}
+                        secondary={u.email ? `E-Mail: ${u.email} | Score: ${u.score}` : undefined}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              )}
             </>
           )}
-        </Box>
-      </LocalizationProvider>
-
-      <Divider sx={{ my: 2 }} />
-      <Typography mb={1}>Vorhandene Termine:</Typography>
-      <List>
-        {aktuelleTermine.map(termin => (
-          <ListItem key={termin.id}
-            secondaryAction={
-              <>
-                <IconButton edge="end" aria-label="edit" onClick={() => handleEdit(termin)}>
-                  <EditIcon />
-                </IconButton>
-                <IconButton edge="end" aria-label="delete" onClick={() => handleDelete(termin.id)}>
-                  <DeleteIcon />
-                </IconButton>
-                <IconButton edge="end" aria-label="add-user" onClick={(e) => handleOpenUserPopover(e, termin.id)}>
-                  <AddIcon />
-                </IconButton>
-              </>
-            }>
-            <ListItemText
-              primary={`${termin.titel} (${termin.datum})`}
-              secondary={
-                <>
-                  <span><b>Kategorie:</b> {termin.kategorie ?? "Sonstiges"} | </span>
-                  {termin.beschreibung && <span>Beschreibung: {termin.beschreibung} | </span>}
-                  {termin.beginn && <span>Beginn: {termin.beginn} | </span>}
-                  {termin.ende && <span>Ende: {termin.ende} | </span>}
-                  {typeof termin.anzahl === "number" && <span>Anzahl: {termin.anzahl} | </span>}
-                  {termin.stichtag && <span>Stichtag: {termin.stichtag} | </span>}
-                  {termin.ansprechpartner_name && <span>Ansprechpartner: {termin.ansprechpartner_name} | </span>}
-                  {termin.ansprechpartner_mail && <span>Email: {termin.ansprechpartner_mail} | </span>}
-                  {typeof termin.score === "number" && <span>Score: {termin.score} | </span>}
-                  {typeof termin.stichtagsmail_senden !== "undefined" && <span>Stichtagsmail: {termin.stichtagsmail_senden ? "Ja" : "Nein"} | </span>}
-                  {typeof termin.zufallsauswahl !== "undefined" && <span>Zufallsauswahl: {termin.zufallsauswahl ? "Ja" : "Nein"} | </span>}
-                  {/* Teilnehmer anzeigen und entfernen */}
-                  {termin.teilnehmer && termin.teilnehmer.length > 0 && (
-                    <Box sx={{ display: "block", mt: 1 }}>
-                      <Typography variant="body2" sx={{ mb: 0.5 }}>Teilnehmer:</Typography>
-                      {termin.teilnehmer.map(tn => (
-                        <Box key={tn.username} sx={{ display: "inline-flex", alignItems: "center", mr: 2 }}>
-                          <span>{tn.username}</span>
-                          <IconButton size="small" color="error" sx={{ ml: 0.5 }}
-                            onClick={() => handleRemoveUserFromTermin(termin.id, tn.username)}>
-                            <RemoveCircleIcon />
-                          </IconButton>
-                        </Box>
-                      ))}
-                    </Box>
-                  )}
-                </>
-              }
-            />
-          </ListItem>
-        ))}
-      </List>
-
-      {/* Popover für User-Hinzufügen */}
-      <Popover
-        open={!!userPopover.anchorEl}
-        anchorEl={userPopover.anchorEl}
-        onClose={handleCloseUserPopover}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-      >
-        <Box sx={{ p: 2, minWidth: 220 }}>
-          <Typography variant="subtitle2" sx={{ mb: 1 }}>User hinzufügen</Typography>
-          <FormControl fullWidth size="small">
-            <InputLabel id="add-user-label">User</InputLabel>
-            <Select
-              labelId="add-user-label"
-              value={selectedUserToAdd}
-              label="User"
-              onChange={e => setSelectedUserToAdd(e.target.value)}
-            >
-              {users.map(u => (
-                <MenuItem key={u.username} value={u.username}>{u.username}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
-            <Button variant="contained" size="small" onClick={handleAddUserToTermin} disabled={!selectedUserToAdd}>
-              Hinzufügen
-            </Button>
-            <Button variant="outlined" size="small" onClick={handleCloseUserPopover}>
-              Abbrechen
-            </Button>
-          </Box>
-        </Box>
-      </Popover>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDetails}>Schließen</Button>
+        </DialogActions>
+      </Dialog>
     </Paper>
   );
 };
 
-export default TermineAdmin;
+export default TerminArchiv;

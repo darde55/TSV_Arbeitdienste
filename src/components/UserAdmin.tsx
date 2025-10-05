@@ -15,6 +15,7 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  Pagination,
 } from "@mui/material";
 import { Delete, Edit } from "@mui/icons-material";
 import api from "../api/api";
@@ -40,11 +41,17 @@ const ROLE_OPTIONS = [
   { value: "admin", label: "Admin" },
 ];
 
+const PAGE_SIZE = 10;
+
 const UserAdmin: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
+  // Score wird beim Bearbeiten als eigener State gehalten
   const [form, setForm] = useState<Omit<User, "score">>(initialUserState);
+  const [score, setScore] = useState<number>(0);
   const [editUser, setEditUser] = useState<User | null>(null);
   const [message, setMessage] = useState("");
+  const [search, setSearch] = useState<string>("");
+  const [page, setPage] = useState(1);
 
   // Fetch all users
   const fetchUsers = useCallback(async () => {
@@ -79,11 +86,16 @@ const UserAdmin: React.FC = () => {
     }));
   };
 
+  const handleScoreChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setScore(Number(e.target.value));
+  };
+
   const handleCreate = async () => {
     try {
       await api.post("/users", { ...form });
       setMessage("Benutzer erfolgreich angelegt!");
       setForm(initialUserState);
+      setScore(0);
       fetchUsers();
     } catch (err) {
       setMessage("Fehler beim Anlegen!");
@@ -94,15 +106,17 @@ const UserAdmin: React.FC = () => {
   const handleEdit = (user: User) => {
     setEditUser(user);
     setForm({ ...user, password: "" }); // leeres Passwort beim Bearbeiten
+    setScore(user.score ?? 0);
   };
 
   const handleUpdate = async () => {
     if (!editUser) return;
     try {
-      await api.put(`/users/${editUser.username}`, form);
+      await api.put(`/users/${editUser.username}`, { ...form, score });
       setMessage("Benutzer erfolgreich bearbeitet!");
       setEditUser(null);
       setForm(initialUserState);
+      setScore(0);
       fetchUsers();
     } catch (err) {
       setMessage("Fehler beim Bearbeiten!");
@@ -121,13 +135,25 @@ const UserAdmin: React.FC = () => {
     }
   };
 
+  // Suche und Pagination für Userliste
+  const filteredUsers = users.filter(u =>
+    u.username.toLowerCase().includes(search.toLowerCase()) ||
+    u.email.toLowerCase().includes(search.toLowerCase())
+  );
+  const pageCount = Math.ceil(filteredUsers.length / PAGE_SIZE);
+  const pagedUsers = filteredUsers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  useEffect(() => {
+    setPage(1); // Seite zurücksetzen, wenn Suche geändert wird
+  }, [search, users.length]);
+
   return (
     <Paper sx={{ p: 3, mb: 4 }}>
       <Typography variant="h6" mb={2}>
         Benutzerverwaltung
       </Typography>
-      {/* Abschnitt 1: Neuen Benutzer anlegen */}
-      <Typography mb={1}>Neuen Benutzer anlegen:</Typography>
+      {/* Abschnitt 1: Neuen Benutzer anlegen oder bearbeiten */}
+      <Typography mb={1}>{editUser ? "Benutzer bearbeiten:" : "Neuen Benutzer anlegen:"}</Typography>
       <Box mb={2} display="flex" flexWrap="wrap" gap={1}>
         <TextField
           label="Benutzername"
@@ -135,6 +161,7 @@ const UserAdmin: React.FC = () => {
           value={form.username}
           onChange={handleChange}
           size="small"
+          disabled={!!editUser}
         />
         <TextField
           label="Email"
@@ -167,6 +194,17 @@ const UserAdmin: React.FC = () => {
             ))}
           </Select>
         </FormControl>
+        {editUser && (
+          <TextField
+            label="Score"
+            name="score"
+            type="number"
+            value={score}
+            onChange={handleScoreChange}
+            size="small"
+            sx={{ minWidth: 80 }}
+          />
+        )}
         {!editUser ? (
           <Button variant="contained" onClick={handleCreate}>
             Anlegen
@@ -187,6 +225,7 @@ const UserAdmin: React.FC = () => {
             onClick={() => {
               setEditUser(null);
               setForm(initialUserState);
+              setScore(0);
             }}
           >
             Abbrechen
@@ -196,6 +235,14 @@ const UserAdmin: React.FC = () => {
       <Divider sx={{ my: 2 }} />
       {/* Abschnitt 2: User bearbeiten/löschen */}
       <Typography mb={1}>Vorhandene Benutzer bearbeiten/löschen:</Typography>
+      <Box sx={{ mb: 2, display: "flex", gap: 2, alignItems: "center" }}>
+        <TextField
+          size="small"
+          label="Suche"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+      </Box>
       {message && (
         <Alert
           severity={message.includes("Fehler") ? "error" : "success"}
@@ -205,7 +252,7 @@ const UserAdmin: React.FC = () => {
         </Alert>
       )}
       <List>
-        {users.map((user) => (
+        {pagedUsers.map((user) => (
           <ListItem
             key={user.username}
             secondaryAction={
@@ -229,11 +276,22 @@ const UserAdmin: React.FC = () => {
           >
             <ListItemText
               primary={`${user.username} (${user.role})`}
-              secondary={user.email}
+              secondary={`E-Mail: ${user.email} | Score: ${user.score}`}
             />
           </ListItem>
         ))}
       </List>
+      <Box sx={{ mt: 1, display: "flex", justifyContent: "center" }}>
+        {pageCount > 1 && (
+          <Pagination
+            count={pageCount}
+            page={page}
+            onChange={(_, value) => setPage(value)}
+            color="primary"
+            size="small"
+          />
+        )}
+      </Box>
     </Paper>
   );
 };

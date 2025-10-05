@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import {
   Paper, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   IconButton, Box, Select, MenuItem, FormControl, InputLabel, Snackbar, Alert, Button,
-  Dialog, DialogTitle, DialogContent, DialogActions, List, ListItem, ListItemText, CircularProgress
+  Dialog, DialogTitle, DialogContent, DialogActions, List, ListItem, ListItemText, CircularProgress,
+  TextField, Pagination
 } from "@mui/material";
 import DeleteIcon from '@mui/icons-material/Delete';
 import InfoIcon from '@mui/icons-material/Info';
@@ -28,11 +29,15 @@ type Teilnehmer = {
   score?: number;
 };
 
+const PAGE_SIZE = 10;
+
 const TerminArchiv: React.FC = () => {
   const [termine, setTermine] = useState<Termin[]>([]);
   const [sortBy, setSortBy] = useState<"datum" | "titel">("datum");
   const [snackOpen, setSnackOpen] = useState(false);
   const [error, setError] = useState<string>("");
+  const [search, setSearch] = useState<string>("");
+  const [page, setPage] = useState(1);
 
   // Details-Dialog
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -86,17 +91,38 @@ const TerminArchiv: React.FC = () => {
     setDetailsError("");
   };
 
-  const sortedTermine = [...termine].sort((a, b) => {
+  // Suche und Sortierung
+  const filteredTermine = termine.filter(t => {
+    const query = search.toLowerCase();
+    return t.titel.toLowerCase().includes(query) ||
+      new Date(t.datum).toLocaleDateString("de-DE").includes(query);
+  });
+
+  const sortedTermine = [...filteredTermine].sort((a, b) => {
     if (sortBy === "datum") {
       return new Date(a.datum).getTime() - new Date(b.datum).getTime();
     }
     return a.titel.localeCompare(b.titel, "de", { sensitivity: "base" });
   });
 
+  // Pagination
+  const pageCount = Math.ceil(sortedTermine.length / PAGE_SIZE);
+  const pagedTermine = sortedTermine.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  useEffect(() => {
+    setPage(1); // Seite zurücksetzen, wenn Suche oder Sortierung geändert wird
+  }, [search, sortBy, termine]);
+
   return (
     <Paper sx={{ p: 2, mt: 2 }}>
       <Typography variant="h6" mb={2}>Termin-Archiv</Typography>
       <Box sx={{ mb: 2, display: "flex", alignItems: "center", gap: 2 }}>
+        <TextField
+          size="small"
+          label="Suche"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
         <FormControl size="small">
           <InputLabel id="sort-label">Sortieren nach</InputLabel>
           <Select
@@ -124,7 +150,7 @@ const TerminArchiv: React.FC = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {sortedTermine.map(t => (
+            {pagedTermine.map(t => (
               <TableRow key={t.id}>
                 <TableCell>{t.titel}</TableCell>
                 <TableCell>{new Date(t.datum).toLocaleDateString("de-DE")}</TableCell>
@@ -145,6 +171,17 @@ const TerminArchiv: React.FC = () => {
           </TableBody>
         </Table>
       </TableContainer>
+      <Box sx={{ mt: 1, display: "flex", justifyContent: "center" }}>
+        {pageCount > 1 && (
+          <Pagination
+            count={pageCount}
+            page={page}
+            onChange={(_, value) => setPage(value)}
+            color="primary"
+            size="small"
+          />
+        )}
+      </Box>
       <Snackbar
         open={snackOpen}
         autoHideDuration={4000}
