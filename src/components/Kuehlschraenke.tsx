@@ -14,11 +14,16 @@ import {
   Typography,
   TextField,
   IconButton,
-  Stack
+  Stack,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import api from "../api/api";
+import { BarChart } from "@mui/x-charts";
 
 type KuehlschrankProdukt = {
   id: number;
@@ -34,8 +39,16 @@ type Kuehlschrank = {
   inhalt: KuehlschrankProdukt[];
 };
 
+type ProduktPreisliste = {
+  id: number;
+  name: string;
+  preis: number;
+  kategorie: string;
+};
+
 const Kuehlschraenke = () => {
   const [kuehlschraenke, setKuehlschraenke] = useState<Kuehlschrank[]>([]);
+  const [produktePreisliste, setProduktePreisliste] = useState<ProduktPreisliste[]>([]);
   const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState({ name: "", standort: "" });
   const [snack, setSnack] = useState<{ message: string; severity: "success" | "error" }>({ message: "", severity: "success" });
@@ -47,12 +60,13 @@ const Kuehlschraenke = () => {
   const [selectedKuehlschrank, setSelectedKuehlschrank] = useState<Kuehlschrank | null>(null);
 
   // Produkt bearbeiten im Kühlschrank
-  const [produktName, setProduktName] = useState("");
+  const [produktId, setProduktId] = useState<number | null>(null);
   const [produktBestand, setProduktBestand] = useState<number>(0);
   const [editProduktId, setEditProduktId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchKuehlschraenke();
+    fetchPreisliste();
   }, []);
 
   const fetchKuehlschraenke = async () => {
@@ -61,6 +75,15 @@ const Kuehlschraenke = () => {
       setKuehlschraenke(res.data);
     } catch {
       setSnack({ message: "Fehler beim Laden!", severity: "error" });
+    }
+  };
+
+  const fetchPreisliste = async () => {
+    try {
+      const res = await api.get<ProduktPreisliste[]>("/kiosk/preisliste");
+      setProduktePreisliste(res.data);
+    } catch {
+      // Fehler ignorieren, falls Preisliste nicht nötig
     }
   };
 
@@ -96,29 +119,30 @@ const Kuehlschraenke = () => {
     setSelectedKuehlschrank(k);
     setInhaltDialogOpen(true);
     setEditProduktId(null);
-    setProduktName("");
+    setProduktId(null);
     setProduktBestand(0);
   };
 
   // Produkt bearbeiten in Kühlschrank (Dialog)
   const handleEditProdukt = (p: KuehlschrankProdukt) => {
     setEditProduktId(p.id);
-    setProduktName(p.name);
+    // Suche ProduktId in Preisliste nach Name
+    const prod = produktePreisliste.find(pr => pr.name === p.name);
+    setProduktId(prod?.id ?? null);
     setProduktBestand(p.bestand);
   };
 
   // Produkt speichern/bearbeiten
   const handleSaveProdukt = async () => {
-    if (!selectedKuehlschrank) return;
+    if (!selectedKuehlschrank || !produktId) return;
     try {
       await api.post(`/kiosk/kuehlschraenke/${selectedKuehlschrank.id}/inhalt`, {
-        name: produktName,
+        produktId: produktId,
         bestand: produktBestand,
-        produktId: editProduktId ?? undefined,
       });
       setSnack({ message: editProduktId ? "Produkt geändert!" : "Produkt hinzugefügt!", severity: "success" });
       setEditProduktId(null);
-      setProduktName("");
+      setProduktId(null);
       setProduktBestand(0);
       fetchKuehlschraenke();
       // Refresh Inhalt
@@ -136,7 +160,7 @@ const Kuehlschraenke = () => {
       await api.delete(`/kiosk/kuehlschraenke/${selectedKuehlschrank.id}/inhalt/${editProduktId}`);
       setSnack({ message: "Produkt entfernt!", severity: "success" });
       setEditProduktId(null);
-      setProduktName("");
+      setProduktId(null);
       setProduktBestand(0);
       fetchKuehlschraenke();
       // Refresh Inhalt
@@ -146,6 +170,18 @@ const Kuehlschraenke = () => {
       setSnack({ message: "Fehler beim Löschen!", severity: "error" });
     }
   };
+
+  // --- Gesamtbestand für Diagramm ---
+  const produktBestandMap: Record<string, number> = {};
+  kuehlschraenke.forEach(k => {
+    k.inhalt.forEach(p => {
+      produktBestandMap[p.name] = (produktBestandMap[p.name] || 0) + p.bestand;
+    });
+  });
+  const chartData = Object.entries(produktBestandMap).map(([name, bestand]) => ({
+    name,
+    bestand
+  }));
 
   return (
     <Box sx={{ mt: 3 }}>
@@ -219,7 +255,19 @@ const Kuehlschraenke = () => {
       <Dialog open={inhaltDialogOpen} onClose={() => setInhaltDialogOpen(false)}>
         <DialogTitle>Inhalt bearbeiten – {selectedKuehlschrank?.name}</DialogTitle>
         <DialogContent>
-          <TextField label="Produktname" fullWidth value={produktName} onChange={e => setProduktName(e.target.value)} sx={{ mb: 2 }} />
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel id="produkt-select-label">Produkt</InputLabel>
+            <Select
+              labelId="produkt-select-label"
+              value={produktId ?? ""}
+              onChange={e => setProduktId(Number(e.target.value))}
+              label="Produkt"
+            >
+              {produktePreisliste.map(prod => (
+                <MenuItem key={prod.id} value={prod.id}>{prod.name}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
           <TextField label="Bestand" type="number" fullWidth value={produktBestand} onChange={e => setProduktBestand(Number(e.target.value))} sx={{ mb: 2 }} />
         </DialogContent>
         <DialogActions>
@@ -234,6 +282,16 @@ const Kuehlschraenke = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Box sx={{ mt: 4 }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>Gesamtbestand aller Produkte</Typography>
+        <BarChart
+          xAxis={[{ scaleType: 'band', data: chartData.map(d => d.name) }]}
+          series={[{ data: chartData.map(d => d.bestand), color: "#1976d2", label: "Bestand" }]}
+          height={300}
+          width={Math.max(400, chartData.length * 90)}
+        />
+      </Box>
 
       <Snackbar
         open={!!snack.message}

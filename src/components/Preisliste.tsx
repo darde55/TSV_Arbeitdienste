@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { Table, TableHead, TableRow, TableCell, TableBody, Button, TextField, Dialog, DialogTitle, DialogContent, DialogActions, Snackbar, Alert, Select, MenuItem, FormControl, InputLabel } from "@mui/material";
+import { Table, TableHead, TableRow, TableCell, TableBody, Button, TextField, Dialog, DialogTitle, DialogContent, DialogActions, Snackbar, Alert, Select, MenuItem, FormControl, InputLabel, IconButton, Stack } from "@mui/material";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
 import api from "../api/api";
 
 type Produkt = { id: number; name: string; preis: number | string; kategorie: string };
@@ -12,6 +14,7 @@ const kategorien = [
 const Preisliste: React.FC = () => {
   const [produkte, setProdukte] = useState<Produkt[]>([]);
   const [editOpen, setEditOpen] = useState(false);
+  const [editMode, setEditMode] = useState<null | number>(null); // Produkt-ID oder null
   const [form, setForm] = useState({ name: "", preis: 0, kategorie: kategorien[0].value });
   const [snack, setSnack] = useState("");
 
@@ -31,13 +34,40 @@ const Preisliste: React.FC = () => {
     await api.post("/kiosk/preisliste", form);
     setEditOpen(false);
     setForm({ name: "", preis: 0, kategorie: kategorien[0].value });
+    setEditMode(null);
     setSnack("Produkt hinzugefügt!");
+    fetchProdukte();
+  };
+
+  const handleEditProdukt = (p: Produkt) => {
+    setEditMode(p.id);
+    setForm({
+      name: p.name,
+      preis: typeof p.preis === "number" ? p.preis : parseFloat(p.preis),
+      kategorie: p.kategorie
+    });
+    setEditOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (editMode === null) return;
+    await api.put(`/kiosk/preisliste/${editMode}`, form);
+    setEditOpen(false);
+    setForm({ name: "", preis: 0, kategorie: kategorien[0].value });
+    setEditMode(null);
+    setSnack("Produkt geändert!");
+    fetchProdukte();
+  };
+
+  const handleDeleteProdukt = async (id: number) => {
+    await api.delete(`/kiosk/preisliste/${id}`);
+    setSnack("Produkt gelöscht!");
     fetchProdukte();
   };
 
   return (
     <>
-      <Button variant="contained" onClick={() => setEditOpen(true)} sx={{ mb: 2 }}>
+      <Button variant="contained" onClick={() => { setEditOpen(true); setEditMode(null); setForm({ name: "", preis: 0, kategorie: kategorien[0].value }); }} sx={{ mb: 2 }}>
         Produkt hinzufügen
       </Button>
       <Table>
@@ -46,6 +76,7 @@ const Preisliste: React.FC = () => {
             <TableCell>Name</TableCell>
             <TableCell>Preis (€)</TableCell>
             <TableCell>Kategorie</TableCell>
+            <TableCell align="right">Aktionen</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -54,12 +85,22 @@ const Preisliste: React.FC = () => {
               <TableCell>{p.name}</TableCell>
               <TableCell>{typeof p.preis === "number" ? p.preis.toFixed(2) : p.preis}</TableCell>
               <TableCell>{kategorien.find(k => k.value === p.kategorie)?.label || p.kategorie}</TableCell>
+              <TableCell align="right">
+                <Stack direction="row" spacing={1} justifyContent="flex-end">
+                  <IconButton size="small" color="primary" onClick={() => handleEditProdukt(p)}>
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                  <IconButton size="small" color="error" onClick={() => handleDeleteProdukt(p.id)}>
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Stack>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
       <Dialog open={editOpen} onClose={() => setEditOpen(false)}>
-        <DialogTitle>Produkt hinzufügen</DialogTitle>
+        <DialogTitle>{editMode === null ? "Produkt hinzufügen" : "Produkt bearbeiten"}</DialogTitle>
         <DialogContent>
           <TextField
             label="Name"
@@ -92,7 +133,9 @@ const Preisliste: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditOpen(false)}>Abbrechen</Button>
-          <Button variant="contained" onClick={handleAddProdukt}>Speichern</Button>
+          <Button variant="contained" onClick={editMode === null ? handleAddProdukt : handleSaveEdit}>
+            {editMode === null ? "Speichern" : "Änderungen speichern"}
+          </Button>
         </DialogActions>
       </Dialog>
       <Snackbar
