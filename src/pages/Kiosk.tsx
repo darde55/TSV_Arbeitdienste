@@ -10,7 +10,7 @@ const Kiosk: React.FC<{ user: { role: string } }> = ({ user }) => {
   if (user.role !== "admin") {
     return <Paper sx={{ p: 3, mt: 2 }}>Kein Zugriff</Paper>;
   }
-// Test Kasse neu im frontend deployen
+// Test Kasse neu im frontend deployen neu 2
   return (
     <Paper sx={{ mt: 2, p: 2 }}>
       <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="fullWidth">
