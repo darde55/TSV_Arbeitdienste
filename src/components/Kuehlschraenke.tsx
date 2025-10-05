@@ -22,23 +22,23 @@ import {
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
 import api from "../api/api";
 import { BarChart } from "@mui/x-charts";
 
 type KuehlschrankProdukt = {
   id: number;
+  produkt_id: number;
   name: string;
   bestand: number;
   preis: number;
 };
-
 type Kuehlschrank = {
   id: number;
   name: string;
   standort: string;
   inhalt: KuehlschrankProdukt[];
 };
-
 type ProduktPreisliste = {
   id: number;
   name: string;
@@ -114,7 +114,7 @@ const Kuehlschraenke = () => {
     }
   };
 
-  // Inhalt bearbeiten öffnen
+  // Öffnet "Inhalt bearbeiten" für alle Produkte eines Kühlschranks
   const handleOpenInhaltDialog = (k: Kuehlschrank) => {
     setSelectedKuehlschrank(k);
     setInhaltDialogOpen(true);
@@ -123,16 +123,18 @@ const Kuehlschraenke = () => {
     setProduktBestand(0);
   };
 
-  // Produkt bearbeiten in Kühlschrank (Dialog)
+  // Klick auf "Bearbeiten"-Icon für ein Produkt im Kühlschrank
   const handleEditProdukt = (p: KuehlschrankProdukt) => {
     setEditProduktId(p.id);
-    // Suche ProduktId in Preisliste nach Name
-    const prod = produktePreisliste.find(pr => pr.name === p.name);
-    setProduktId(prod?.id ?? null);
+    setProduktId(p.produkt_id);
     setProduktBestand(p.bestand);
+    setInhaltDialogOpen(true);
+    setSelectedKuehlschrank(
+      kuehlschraenke.find(k => k.inhalt.some(prod => prod.id === p.id)) || null
+    );
   };
 
-  // Produkt speichern/bearbeiten
+  // Produkt speichern/bearbeiten (Bestand anpassen)
   const handleSaveProdukt = async () => {
     if (!selectedKuehlschrank || !produktId) return;
     try {
@@ -148,16 +150,17 @@ const Kuehlschraenke = () => {
       // Refresh Inhalt
       const updated = await api.get<Kuehlschrank>(`/kiosk/kuehlschraenke/${selectedKuehlschrank.id}`);
       setSelectedKuehlschrank(updated.data);
+      setInhaltDialogOpen(false);
     } catch {
       setSnack({ message: "Fehler beim Speichern!", severity: "error" });
     }
   };
 
   // Produkt aus Kühlschrank löschen
-  const handleDeleteProdukt = async () => {
-    if (!selectedKuehlschrank || !editProduktId) return;
+  const handleDeleteProdukt = async (p: KuehlschrankProdukt) => {
+    if (!selectedKuehlschrank || !p.id) return;
     try {
-      await api.delete(`/kiosk/kuehlschraenke/${selectedKuehlschrank.id}/inhalt/${editProduktId}`);
+      await api.delete(`/kiosk/kuehlschraenke/${selectedKuehlschrank.id}/inhalt/${p.id}`);
       setSnack({ message: "Produkt entfernt!", severity: "success" });
       setEditProduktId(null);
       setProduktId(null);
@@ -166,22 +169,22 @@ const Kuehlschraenke = () => {
       // Refresh Inhalt
       const updated = await api.get<Kuehlschrank>(`/kiosk/kuehlschraenke/${selectedKuehlschrank.id}`);
       setSelectedKuehlschrank(updated.data);
+      setInhaltDialogOpen(false);
     } catch {
       setSnack({ message: "Fehler beim Löschen!", severity: "error" });
     }
   };
 
-  // --- Gesamtbestand für Diagramm ---
-  const produktBestandMap: Record<string, number> = {};
+  // --- Gesamtbestand für Diagramm (und Einzelbestand je Kühlschrank) ---
+  const chartData: { name: string; bestand: number }[] = [];
   kuehlschraenke.forEach(k => {
     k.inhalt.forEach(p => {
-      produktBestandMap[p.name] = (produktBestandMap[p.name] || 0) + p.bestand;
+      chartData.push({
+        name: `${p.name} (${k.name})`,
+        bestand: p.bestand
+      });
     });
   });
-  const chartData = Object.entries(produktBestandMap).map(([name, bestand]) => ({
-    name,
-    bestand
-  }));
 
   return (
     <Box sx={{ mt: 3 }}>
@@ -196,11 +199,29 @@ const Kuehlschraenke = () => {
               <Typography variant="body2" sx={{ mb: 1 }}>Standort: {k.standort}</Typography>
               <Typography variant="subtitle2">Inhalt:</Typography>
               {k.inhalt?.length > 0 ? (
-                <ul style={{ margin: 0, paddingLeft: 18 }}>
+                <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none" }}>
                   {k.inhalt.map(p => (
-                    <li key={p.id}>
-                      {p.name} ({p.bestand}){" "}
-                      <IconButton size="small" onClick={() => handleEditProdukt(p)}><EditIcon fontSize="small" /></IconButton>
+                    <li
+                      key={p.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 8,
+                        padding: "2px 0",
+                      }}
+                    >
+                      <span>
+                        {p.name} ({p.bestand})
+                      </span>
+                      <span>
+                        <IconButton size="small" onClick={() => handleEditProdukt(p)}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton size="small" color="error" onClick={() => { setSelectedKuehlschrank(k); handleDeleteProdukt(p); }}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -272,7 +293,7 @@ const Kuehlschraenke = () => {
         </DialogContent>
         <DialogActions>
           {editProduktId && (
-            <Button color="error" onClick={handleDeleteProdukt}>
+            <Button color="error" onClick={() => handleDeleteProdukt({ id: editProduktId, produkt_id: produktId!, name: "", bestand: produktBestand, preis: 0 })}>
               Produkt entfernen
             </Button>
           )}
@@ -284,7 +305,7 @@ const Kuehlschraenke = () => {
       </Dialog>
 
       <Box sx={{ mt: 4 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>Gesamtbestand aller Produkte</Typography>
+        <Typography variant="h6" sx={{ mb: 2 }}>Bestand je Kühlschrank & Produkt</Typography>
         <BarChart
           xAxis={[{ scaleType: 'band', data: chartData.map(d => d.name) }]}
           series={[{ data: chartData.map(d => d.bestand), color: "#1976d2", label: "Bestand" }]}
