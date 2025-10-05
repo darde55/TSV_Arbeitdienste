@@ -5,7 +5,7 @@ import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
 import Profile from "./pages/Profile";
 import Admin from "./pages/Admin";
-import Kiosk from "./pages/Kiosk"; // <--- FEHLT!
+import Kiosk from "./pages/Kiosk"; // <--- Importiert!
 import { useUserStore } from "./store/userStore";
 import { CircularProgress, Box } from "@mui/material";
 
@@ -38,7 +38,7 @@ const App: React.FC = () => {
             user && user.role === "admin" ? <Admin /> : <Navigate to="/" />
           }
         />
-        {/* --- Kiosk Route ergänzen! --- */}
+        {/* --- Kiosk Route korrekt ergänzt --- */}
         <Route
           path="/kiosk"
           element={
