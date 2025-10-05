@@ -5,7 +5,6 @@ import {
   MenuItem, InputLabel, FormControl, Box, Checkbox, FormControlLabel, Snackbar, Alert
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
-import GroupAddIcon from "@mui/icons-material/GroupAdd";
 import DeleteIcon from "@mui/icons-material/Delete";
 import RemoveCircleIcon from "@mui/icons-material/RemoveCircle";
 import AddCircleIcon from "@mui/icons-material/AddCircle";
@@ -176,8 +175,8 @@ const TerminAdmin: React.FC = () => {
               <TableCell>Ende</TableCell>
               <TableCell>Kategorie</TableCell>
               <TableCell>Score</TableCell>
-              <TableCell>Bearbeiten</TableCell>
               <TableCell>Teilnehmer</TableCell>
+              <TableCell>Bearbeiten</TableCell>
               <TableCell>Löschen</TableCell>
             </TableRow>
           </TableHead>
@@ -191,14 +190,20 @@ const TerminAdmin: React.FC = () => {
                 <TableCell>{t.kategorie}</TableCell>
                 <TableCell>{t.score}</TableCell>
                 <TableCell>
-                  <IconButton color="primary" onClick={() => handleEditOpen(t)}>
-                    <EditIcon />
-                  </IconButton>
+                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                    {t.teilnehmer && t.teilnehmer.length > 0
+                      ? t.teilnehmer.map(tn => (
+                          <Box key={tn.username} sx={{ display: "flex", alignItems: "center", mr: 1 }}>
+                            <span>{tn.username}</span>
+                          </Box>
+                        ))
+                      : <span style={{ color: "#aaa" }}>Keine Teilnehmer</span>
+                    }
+                  </Box>
                 </TableCell>
                 <TableCell>
-                  {/* Teilnehmer-Button öffnet auch Bearbeiten-Dialog für Teilnehmerverwaltung */}
-                  <IconButton color="secondary" onClick={() => handleEditOpen(t)}>
-                    <GroupAddIcon />
+                  <IconButton color="primary" onClick={() => handleEditOpen(t)}>
+                    <EditIcon />
                   </IconButton>
                 </TableCell>
                 <TableCell>
@@ -277,7 +282,7 @@ const TerminAdmin: React.FC = () => {
                 Hinzufügen
               </Button>
             </Box>
-            <Box mt={2}>
+            <Box mt={2} sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
               {selectedTermin?.teilnehmer?.map(tn => (
                 <Box key={tn.username} sx={{ display: "inline-flex", alignItems: "center", mr: 2 }}>
                   <span>{tn.username}</span>
