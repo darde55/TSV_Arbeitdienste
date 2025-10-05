@@ -2,13 +2,9 @@ import { useEffect, useState } from "react";
 import {
   Box,
   Button,
-  Table,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableBody,
-  TableContainer,
-  IconButton,
+  Card,
+  CardContent,
+  CardActions,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -16,10 +12,12 @@ import {
   Snackbar,
   Alert,
   Typography,
-  TextField
+  TextField,
+  IconButton,
+  Stack
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
-import DeleteIcon from "@mui/icons-material/Delete";
+import EditIcon from "@mui/icons-material/Edit";
 import api from "../api/api";
 
 type KuehlschrankProdukt = {
@@ -44,6 +42,15 @@ const Kuehlschraenke = () => {
   const [deleteKuehlschrankDialogOpen, setDeleteKuehlschrankDialogOpen] = useState(false);
   const [kuehlschrankToDelete, setKuehlschrankToDelete] = useState<Kuehlschrank | null>(null);
 
+  // Inhalt bearbeiten Dialog
+  const [inhaltDialogOpen, setInhaltDialogOpen] = useState(false);
+  const [selectedKuehlschrank, setSelectedKuehlschrank] = useState<Kuehlschrank | null>(null);
+
+  // Produkt bearbeiten im Kühlschrank
+  const [produktName, setProduktName] = useState("");
+  const [produktBestand, setProduktBestand] = useState<number>(0);
+  const [editProduktId, setEditProduktId] = useState<number | null>(null);
+
   useEffect(() => {
     fetchKuehlschraenke();
   }, []);
@@ -52,15 +59,8 @@ const Kuehlschraenke = () => {
     try {
       const res = await api.get<Kuehlschrank[]>("/api/kiosk/kuehlschraenke");
       setKuehlschraenke(res.data);
-    } catch (err: unknown) {
-      if (typeof err === "object" && err !== null && "response" in err) {
-        const errorObj = err as { response?: { data?: { message?: string } }, message?: string };
-        setSnack("Fehler beim Laden: " + (errorObj.response?.data?.message || errorObj.message || ""));
-      } else if (err instanceof Error) {
-        setSnack("Fehler beim Laden: " + err.message);
-      } else {
-        setSnack("Fehler beim Laden: Unbekannter Fehler");
-      }
+    } catch {
+      setSnack("Fehler beim Laden!");
     }
   };
 
@@ -72,15 +72,8 @@ const Kuehlschraenke = () => {
       setForm({ name: "", standort: "" });
       setEditOpen(false);
       fetchKuehlschraenke();
-    } catch (err: unknown) {
-      if (typeof err === "object" && err !== null && "response" in err) {
-        const errorObj = err as { response?: { data?: { message?: string } }, message?: string };
-        setSnack("Fehler beim Hinzufügen: " + (errorObj.response?.data?.message || errorObj.message || ""));
-      } else if (err instanceof Error) {
-        setSnack("Fehler beim Hinzufügen: " + err.message);
-      } else {
-        setSnack("Fehler beim Hinzufügen: Unbekannter Fehler");
-      }
+    } catch {
+      setSnack("Fehler beim Hinzufügen!");
     }
   };
 
@@ -93,15 +86,62 @@ const Kuehlschraenke = () => {
       setDeleteKuehlschrankDialogOpen(false);
       setKuehlschrankToDelete(null);
       fetchKuehlschraenke();
-    } catch (err: unknown) {
-      if (typeof err === "object" && err !== null && "response" in err) {
-        const errorObj = err as { response?: { data?: { message?: string } }, message?: string };
-        setSnack("Fehler beim Löschen: " + (errorObj.response?.data?.message || errorObj.message || ""));
-      } else if (err instanceof Error) {
-        setSnack("Fehler beim Löschen: " + err.message);
-      } else {
-        setSnack("Fehler beim Löschen: Unbekannter Fehler");
-      }
+    } catch {
+      setSnack("Fehler beim Löschen!");
+    }
+  };
+
+  // Inhalt bearbeiten öffnen
+  const handleOpenInhaltDialog = (k: Kuehlschrank) => {
+    setSelectedKuehlschrank(k);
+    setInhaltDialogOpen(true);
+    setEditProduktId(null);
+    setProduktName("");
+    setProduktBestand(0);
+  };
+
+  // Produkt bearbeiten in Kühlschrank (Dialog)
+  const handleEditProdukt = (p: KuehlschrankProdukt) => {
+    setEditProduktId(p.id);
+    setProduktName(p.name);
+    setProduktBestand(p.bestand);
+  };
+
+  // Produkt speichern/bearbeiten
+  const handleSaveProdukt = async () => {
+    if (!selectedKuehlschrank) return;
+    try {
+      await api.post(`/api/kiosk/kuehlschraenke/${selectedKuehlschrank.id}/inhalt`, {
+        name: produktName,
+        bestand: produktBestand,
+        produktId: editProduktId ?? undefined,
+      });
+      setSnack(editProduktId ? "Produkt geändert!" : "Produkt hinzugefügt!");
+      setEditProduktId(null);
+      setProduktName("");
+      setProduktBestand(0);
+      fetchKuehlschraenke();
+      const updated = await api.get<Kuehlschrank>(`/api/kiosk/kuehlschraenke/${selectedKuehlschrank.id}`);
+      setSelectedKuehlschrank(updated.data);
+    } catch {
+      setSnack("Fehler beim Speichern!");
+    }
+  };
+
+  // Produkt aus Kühlschrank löschen
+  const handleDeleteProdukt = async () => {
+    if (!selectedKuehlschrank || !editProduktId) return;
+    try {
+      await api.delete(`/api/kiosk/kuehlschraenke/${selectedKuehlschrank.id}/inhalt/${editProduktId}`);
+      setSnack("Produkt entfernt!");
+      setEditProduktId(null);
+      setProduktName("");
+      setProduktBestand(0);
+      fetchKuehlschraenke();
+      const updated = await api.get<Kuehlschrank>(`/api/kiosk/kuehlschraenke/${selectedKuehlschrank.id}`);
+      setSelectedKuehlschrank(updated.data);
+    } catch {
+      setSnack("Fehler beim Löschen!");
     }
   };
 
@@ -110,40 +150,35 @@ const Kuehlschraenke = () => {
       <Button variant="contained" startIcon={<AddIcon />} onClick={() => setEditOpen(true)}>
         Kühlschrank hinzufügen
       </Button>
-      <TableContainer sx={{ mt: 2 }}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Name</TableCell>
-              <TableCell>Standort</TableCell>
-              <TableCell>Inhalt</TableCell>
-              <TableCell>Aktion</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {kuehlschraenke.map(k => (
-              <TableRow key={k.id}>
-                <TableCell>{k.name}</TableCell>
-                <TableCell>{k.standort}</TableCell>
-                <TableCell>
-                  {k.inhalt && k.inhalt.length > 0
-                    ? k.inhalt.map(p => `${p.name} (${p.bestand})`).join(", ")
-                    : <span style={{ color: "#888" }}>leer</span>}
-                </TableCell>
-                <TableCell>
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={() => { setKuehlschrankToDelete(k); setDeleteKuehlschrankDialogOpen(true); }}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      <Stack direction="row" spacing={3} sx={{ mt: 2, flexWrap: "wrap" }}>
+        {kuehlschraenke.map(k => (
+          <Card key={k.id} sx={{ width: 250, minHeight: 180, position: "relative", bgcolor: "#e3f2fd" }}>
+            <CardContent>
+              <Typography variant="h6">{k.name}</Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>Standort: {k.standort}</Typography>
+              <Typography variant="subtitle2">Inhalt:</Typography>
+              {k.inhalt?.length > 0 ? (
+                <ul style={{ margin: 0, paddingLeft: 18 }}>
+                  {k.inhalt.map(p => (
+                    <li key={p.id}>
+                      {p.name} ({p.bestand}){" "}
+                      <IconButton size="small" onClick={() => handleEditProdukt(p)}><EditIcon fontSize="small" /></IconButton>
+                    </li>
+                  ))}
+                </ul>
+              ) : <Typography color="text.secondary">leer</Typography>}
+            </CardContent>
+            <CardActions sx={{ position: "absolute", bottom: 8, left: 8 }}>
+              <Button size="small" variant="outlined" onClick={() => handleOpenInhaltDialog(k)}>
+                Inhalt bearbeiten
+              </Button>
+              <Button size="small" color="error" variant="outlined" onClick={() => { setKuehlschrankToDelete(k); setDeleteKuehlschrankDialogOpen(true); }}>
+                Löschen
+              </Button>
+            </CardActions>
+          </Card>
+        ))}
+      </Stack>
 
       {/* Dialog Kühlschrank anlegen */}
       <Dialog open={editOpen} onClose={() => setEditOpen(false)}>
@@ -174,6 +209,26 @@ const Kuehlschraenke = () => {
           <Button onClick={() => setDeleteKuehlschrankDialogOpen(false)}>Abbrechen</Button>
           <Button color="error" variant="contained" onClick={handleDeleteKuehlschrank}>
             Kühlschrank löschen
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog Inhalt bearbeiten */}
+      <Dialog open={inhaltDialogOpen} onClose={() => setInhaltDialogOpen(false)}>
+        <DialogTitle>Inhalt bearbeiten – {selectedKuehlschrank?.name}</DialogTitle>
+        <DialogContent>
+          <TextField label="Produktname" fullWidth value={produktName} onChange={e => setProduktName(e.target.value)} sx={{ mb: 2 }} />
+          <TextField label="Bestand" type="number" fullWidth value={produktBestand} onChange={e => setProduktBestand(Number(e.target.value))} sx={{ mb: 2 }} />
+        </DialogContent>
+        <DialogActions>
+          {editProduktId && (
+            <Button color="error" onClick={handleDeleteProdukt}>
+              Produkt entfernen
+            </Button>
+          )}
+          <Button onClick={() => setInhaltDialogOpen(false)}>Abbrechen</Button>
+          <Button variant="contained" onClick={handleSaveProdukt}>
+            {editProduktId ? "Speichern" : "Hinzufügen"}
           </Button>
         </DialogActions>
       </Dialog>
