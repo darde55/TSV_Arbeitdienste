@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box,
   Button,
@@ -10,7 +10,6 @@ import {
   DialogContent,
   DialogActions,
   Snackbar,
-  Alert,
   Typography,
   TextField,
   IconButton,
@@ -28,6 +27,8 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import api from "../api/api";
 import { BarChart } from "@mui/x-charts";
+import type { SelectChangeEvent } from "@mui/material/Select";
+import Alert from "@mui/material/Alert";
 
 type KuehlschrankProdukt = {
   id: number;
@@ -66,10 +67,9 @@ const Kuehlschraenke = () => {
 
   // Produkt hinzufügen Dialog
   const [addProduktDialogOpen, setAddProduktDialogOpen] = useState(false);
-  const [addProduktId, setAddProduktId] = useState<number | null>(null);
+  const [addProduktId, setAddProduktId] = useState<string>("");
   const [addProduktBestand, setAddProduktBestand] = useState<number>(0);
 
-  // Toggle für Balkendiagramm
   const [diagrammModus, setDiagrammModus] = useState<"einzeln" | "gesamt">("einzeln");
 
   useEffect(() => {
@@ -93,7 +93,6 @@ const Kuehlschraenke = () => {
     } catch { /* ignore */ }
   };
 
-  // Kühlschrank anlegen
   const handleAddKuehlschrank = async () => {
     try {
       await api.post("/kiosk/kuehlschraenke", form);
@@ -106,7 +105,6 @@ const Kuehlschraenke = () => {
     }
   };
 
-  // Kühlschrank löschen
   const handleDeleteKuehlschrank = async () => {
     if (!kuehlschrankToDelete) return;
     try {
@@ -120,7 +118,6 @@ const Kuehlschraenke = () => {
     }
   };
 
-  // Produkt bearbeiten im Kühlschrank
   const openProduktDialog = (k: Kuehlschrank, p: KuehlschrankProdukt) => {
     setSelectedKuehlschrank(k);
     setSelectedProdukt(p);
@@ -128,7 +125,6 @@ const Kuehlschraenke = () => {
     setProduktDialogOpen(true);
   };
 
-  // Produktbestand speichern
   const handleSaveProdukt = async () => {
     if (!selectedKuehlschrank || !selectedProdukt) return;
     try {
@@ -147,7 +143,6 @@ const Kuehlschraenke = () => {
     }
   };
 
-  // Produkt aus Kühlschrank löschen
   const handleDeleteProdukt = async () => {
     if (!selectedKuehlschrank || !selectedProdukt) return;
     try {
@@ -163,26 +158,24 @@ const Kuehlschraenke = () => {
     }
   };
 
-  // Dialog für neues Produkt im Kühlschrank öffnen
   const openAddProduktDialog = (k: Kuehlschrank) => {
     setSelectedKuehlschrank(k);
     setAddProduktDialogOpen(true);
-    setAddProduktId(null);
+    setAddProduktId("");
     setAddProduktBestand(0);
   };
 
-  // Neues Produkt im Kühlschrank speichern
   const handleAddProdukt = async () => {
-    if (!selectedKuehlschrank || !addProduktId) return;
+    if (!selectedKuehlschrank || addProduktId === "" || isNaN(Number(addProduktId))) return;
     try {
       await api.post(`/kiosk/kuehlschraenke/${selectedKuehlschrank.id}/inhalt`, {
-        produktId: addProduktId,
+        produktId: Number(addProduktId),
         bestand: addProduktBestand,
       });
       setSnack({ message: "Produkt hinzugefügt!", severity: "success" });
       setAddProduktDialogOpen(false);
       setSelectedKuehlschrank(null);
-      setAddProduktId(null);
+      setAddProduktId("");
       setAddProduktBestand(0);
       fetchKuehlschraenke();
     } catch {
@@ -190,7 +183,6 @@ const Kuehlschraenke = () => {
     }
   };
 
-  // --- Balkendiagramm: Einzelbestand oder Gesamtbestand ---
   const einzelLabels: string[] = [];
   const einzelData: number[] = [];
   kuehlschraenke.forEach(k => {
@@ -200,7 +192,6 @@ const Kuehlschraenke = () => {
     });
   });
 
-  // Gesamtbestand je Produkt
   const gesamtMap = new Map<string, number>();
   kuehlschraenke.forEach(k => {
     k.inhalt.forEach(p => {
@@ -291,7 +282,6 @@ const Kuehlschraenke = () => {
         ))}
       </Grid>
 
-      {/* Umschalter für Diagramm */}
       <Box sx={{ mt: 4, mb: 1 }}>
         <ToggleButtonGroup
           color="primary"
@@ -331,14 +321,22 @@ const Kuehlschraenke = () => {
         </Box>
       </Box>
 
-      {/* Dialog Kühlschrank anlegen */}
       <Dialog open={editOpen} onClose={() => setEditOpen(false)}>
         <DialogTitle>Kühlschrank hinzufügen</DialogTitle>
         <DialogContent>
-          <TextField label="Name" fullWidth value={form.name}
-            onChange={e => setForm(f => ({ ...f, name: e.target.value }))} sx={{ mb: 2 }} />
-          <TextField label="Standort" fullWidth value={form.standort}
-            onChange={e => setForm(f => ({ ...f, standort: e.target.value }))} />
+          <TextField
+            label="Name"
+            fullWidth
+            value={form.name}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm(f => ({ ...f, name: e.target.value }))}
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            label="Standort"
+            fullWidth
+            value={form.standort}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm(f => ({ ...f, standort: e.target.value }))}
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditOpen(false)}>Abbrechen</Button>
@@ -346,7 +344,6 @@ const Kuehlschraenke = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Dialog Kühlschrank löschen */}
       <Dialog open={deleteKuehlschrankDialogOpen} onClose={() => setDeleteKuehlschrankDialogOpen(false)}>
         <DialogTitle>Kühlschrank löschen</DialogTitle>
         <DialogContent>
@@ -364,7 +361,6 @@ const Kuehlschraenke = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Dialog Produkt bearbeiten/löschen */}
       <Dialog open={produktDialogOpen} onClose={() => setProduktDialogOpen(false)}>
         <DialogTitle>
           Produkt bearbeiten – {selectedKuehlschrank?.name}
@@ -378,7 +374,7 @@ const Kuehlschraenke = () => {
             type="number"
             fullWidth
             value={produktBestand}
-            onChange={e => setProduktBestand(Number(e.target.value))}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setProduktBestand(Number(e.target.value))}
             sx={{ mb: 2 }}
           />
         </DialogContent>
@@ -389,7 +385,6 @@ const Kuehlschraenke = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Dialog Produkt hinzufügen */}
       <Dialog open={addProduktDialogOpen} onClose={() => setAddProduktDialogOpen(false)}>
         <DialogTitle>Produkt hinzufügen – {selectedKuehlschrank?.name}</DialogTitle>
         <DialogContent>
@@ -397,16 +392,23 @@ const Kuehlschraenke = () => {
             <InputLabel id="produkt-select-label">Produkt</InputLabel>
             <Select
               labelId="produkt-select-label"
-              value={addProduktId ?? ""}
-              onChange={e => setAddProduktId(Number(e.target.value))}
+              value={addProduktId}
+              onChange={(e: SelectChangeEvent) => setAddProduktId(e.target.value)}
               label="Produkt"
             >
               {produktePreisliste.map(prod => (
-                <MenuItem key={prod.id} value={prod.id}>{prod.name}</MenuItem>
+                <MenuItem key={prod.id} value={String(prod.id)}>{prod.name}</MenuItem>
               ))}
             </Select>
           </FormControl>
-          <TextField label="Bestand" type="number" fullWidth value={addProduktBestand} onChange={e => setAddProduktBestand(Number(e.target.value))} sx={{ mb: 2 }} />
+          <TextField
+            label="Bestand"
+            type="number"
+            fullWidth
+            value={addProduktBestand}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAddProduktBestand(Number(e.target.value))}
+            sx={{ mb: 2 }}
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setAddProduktDialogOpen(false)}>Abbrechen</Button>
@@ -420,7 +422,7 @@ const Kuehlschraenke = () => {
         onClose={() => setSnack({ message: "", severity: "success" })}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
-        <Alert severity={snack.severity} onClose={() => setSnack({ message: "", severity: "success" })}>
+        <Alert severity={snack.severity} onClose={() => setSnack({ message: "", severity: "success" })} sx={{ width: '100%' }}>
           {snack.message}
         </Alert>
       </Snackbar>
