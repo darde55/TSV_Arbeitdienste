@@ -12,7 +12,9 @@ import {
   TableRow,
   TableCell,
   TableBody,
-  CircularProgress
+  CircularProgress,
+  Button,
+  Collapse
 } from "@mui/material";
 import {
   BarChart,
@@ -57,6 +59,12 @@ type Verkaufssession = {
   produkte: number | string | null;
 };
 
+type SessionProdukt = {
+  produkt_id: number;
+  name: string;
+  anzahl: number | string;
+};
+
 const COLORS = [
   "#0088FE", "#00C49F", "#FFBB28", "#FF8042",
   "#ad1457", "#7b1fa2", "#388e3c", "#1976d2", "#fbc02d", "#c62828"
@@ -71,6 +79,10 @@ const Statistik = () => {
   const [bestseller, setBestseller] = useState<BestsellerDatum[]>([]);
   const [verkaeufe, setVerkaeufe] = useState<VerkaufDatum[]>([]);
   const [sessions, setSessions] = useState<Verkaufssession[]>([]);
+
+  // Detailzustände für Sessions
+  const [sessionsDetails, setSessionsDetails] = useState<Record<number, SessionProdukt[]>>({});
+  const [expandedSession, setExpandedSession] = useState<number | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -101,6 +113,16 @@ const Statistik = () => {
   // Verkaufssessions für neuen Bereich
   const fetchSessions = () => {
     api.get("/kiosk/statistik/sessions").then(res => setSessions(res.data));
+  };
+
+  // Session-Details laden
+  const handleShowSessionDetails = async (sessionId: number) => {
+    setExpandedSession(expandedSession === sessionId ? null : sessionId);
+    if (!sessionsDetails[sessionId]) {
+      // Lade vom Backend Produkte für diese Session
+      const res = await api.get<SessionProdukt[]>(`/kiosk/statistik/session/${sessionId}/produkte`);
+      setSessionsDetails(prev => ({ ...prev, [sessionId]: res.data }));
+    }
   };
 
   // Jahr/Monat-Arrays für Filter
@@ -247,21 +269,62 @@ const Statistik = () => {
               <TableCell>Benutzer</TableCell>
               <TableCell>Umsatz</TableCell>
               <TableCell>Verkaufte Produkte</TableCell>
+              <TableCell>Details</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {sessions.map(s => (
-              <TableRow key={s.id}>
-                <TableCell>{new Date(s.start).toLocaleString("de-DE")}</TableCell>
-                <TableCell>{s.ende ? new Date(s.ende).toLocaleString("de-DE") : "-"}</TableCell>
-                <TableCell>{s.benutzer}</TableCell>
-                <TableCell>
-                  {s.umsatz ? Number(s.umsatz).toFixed(2) : "0.00"} €
-                </TableCell>
-                <TableCell>
-                  {s.produkte ? Number(s.produkte) : 0}
-                </TableCell>
-              </TableRow>
+              <>
+                <TableRow key={s.id}>
+                  <TableCell>{new Date(s.start).toLocaleString("de-DE")}</TableCell>
+                  <TableCell>{s.ende ? new Date(s.ende).toLocaleString("de-DE") : "-"}</TableCell>
+                  <TableCell>{s.benutzer}</TableCell>
+                  <TableCell>
+                    {s.umsatz ? Number(s.umsatz).toFixed(2) : "0.00"} €
+                  </TableCell>
+                  <TableCell>
+                    {s.produkte ? Number(s.produkte) : 0}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => handleShowSessionDetails(s.id)}
+                    >
+                      {expandedSession === s.id ? "Schließen" : "Details"}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell colSpan={6} sx={{ p: 0 }}>
+                    <Collapse in={expandedSession === s.id} timeout="auto" unmountOnExit>
+                      <Box sx={{ p: 2, bgcolor: "#f5f5f5" }}>
+                        <Typography variant="subtitle2" sx={{ mb: 1 }}>Produkte in dieser Session:</Typography>
+                        {sessionsDetails[s.id] ? (
+                          <Table size="small">
+                            <TableHead>
+                              <TableRow>
+                                <TableCell>Produkt</TableCell>
+                                <TableCell>Anzahl</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {sessionsDetails[s.id].map(p => (
+                                <TableRow key={p.produkt_id}>
+                                  <TableCell>{p.name}</TableCell>
+                                  <TableCell>{typeof p.anzahl === "number" ? p.anzahl : Number(p.anzahl)}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        ) : (
+                          <Typography>Klicke auf "Details", um die Daten zu laden …</Typography>
+                        )}
+                      </Box>
+                    </Collapse>
+                  </TableCell>
+                </TableRow>
+              </>
             ))}
           </TableBody>
         </Table>
