@@ -20,7 +20,7 @@ type Produkt = {
   id: number;
   name: string;
   preis: number | string;
-  kategorie: string; // z.B. "Alkoholfrei", "Alkoholisch", "Sonstiges"
+  kategorie: string;
 };
 
 type VerkaufItem = {
@@ -28,29 +28,50 @@ type VerkaufItem = {
   anzahl: number;
 };
 
+type KuehlschrankInhalt = {
+  produkt_id: number;
+  bestand: number;
+  kuehlschrank_id: number;
+};
+
+type Kuehlschrank = {
+  id: number;
+  name: string;
+  inhalt: KuehlschrankInhalt[];
+};
+
 const CATEGORY_COLORS: Record<string, string> = {
-  Alkoholfrei: "#90caf9",    // hellblau
-  Alkoholisch: "#ffb74d",    // orange
-  Sonstiges: "#c8e6c9"       // grün
+  Alkoholfrei: "#90caf9",
+  Alkoholisch: "#ffb74d",
+  Sonstiges: "#c8e6c9"
 };
 
 const Kasse = () => {
-  const [sessionActive, setSessionActive] = useState(false);
-  const [startDialogOpen, setStartDialogOpen] = useState(true);
+  const [sessionActive, setSessionActive] = useState(() => {
+    return localStorage.getItem("verkaufSessionActive") === "true";
+  });
+  const [startDialogOpen, setStartDialogOpen] = useState(!sessionActive);
   const [produkte, setProdukte] = useState<Produkt[]>([]);
   const [verkauf, setVerkauf] = useState<VerkaufItem[]>([]);
   const [snack, setSnack] = useState<{ message: string; severity: "success" | "error" }>({ message: "", severity: "success" });
   const [loading, setLoading] = useState(false);
   const [category, setCategory] = useState<"Alkoholfrei" | "Alkoholisch" | "Sonstiges">("Alkoholfrei");
 
+  // Kühlschrankdaten für aktuellen Bestand
+  const [kuehlschraenke, setKuehlschraenke] = useState<Kuehlschrank[]>([]);
+
   useEffect(() => {
     setLoading(true);
-    api.get<Produkt[]>("/kiosk/preisliste")
+    api.get<Produkt[]>("/api/kiosk/preisliste")
       .then(res => setProdukte(res.data))
       .finally(() => setLoading(false));
+    // Kühlschrankdaten holen
+    api.get<Kuehlschrank[]>("/api/kiosk/kuehlschraenke")
+      .then(res => setKuehlschraenke(res.data))
+      .catch(() => setKuehlschraenke([]));
   }, []);
 
-  // Verkaufssumme berechnen (preis als Zahl absichern)
+  // Verkaufssumme berechnen
   const gesamtpreis = verkauf.reduce(
     (sum, v) => sum + Number(v.produkt.preis) * v.anzahl, 0);
 
@@ -91,18 +112,28 @@ const Kasse = () => {
     if (verkauf.length === 0) return;
     try {
       for (const v of verkauf) {
-        const kuehlschrankId = 1; // ggf. anpassen!
-        await api.post("/kiosk/verkauf", {
+        await api.post("/api/kiosk/verkauf", {
           produktId: v.produkt.id,
           anzahl: v.anzahl,
-          kuehlschrankId,
         });
       }
       setSnack({ message: "Verkauf gebucht!", severity: "success" });
       setVerkauf([]);
+      // Nach Verkauf Bestand neu laden
+      api.get<Kuehlschrank[]>("/api/kiosk/kuehlschraenke")
+        .then(res => setKuehlschraenke(res.data))
+        .catch(() => setKuehlschraenke([]));
     } catch {
       setSnack({ message: "Fehler beim Buchen!", severity: "error" });
     }
+  };
+
+  // Verkaufssession starten
+  const handleSessionStart = () => {
+    setSessionActive(true);
+    setStartDialogOpen(false);
+    setVerkauf([]);
+    localStorage.setItem("verkaufSessionActive", "true");
   };
 
   // Verkaufssession beenden
@@ -111,17 +142,35 @@ const Kasse = () => {
     setStartDialogOpen(true);
     setVerkauf([]);
     setSnack({ message: "Verkaufssession beendet!", severity: "success" });
+    localStorage.setItem("verkaufSessionActive", "false");
   };
 
-  // Session starten
-  const handleSessionStart = () => {
-    setSessionActive(true);
-    setStartDialogOpen(false);
-    setVerkauf([]);
-  };
+  // Session-Status in allen Tabs synchron halten
+  useEffect(() => {
+    const handler = () => {
+      setSessionActive(localStorage.getItem("verkaufSessionActive") === "true");
+      setStartDialogOpen(localStorage.getItem("verkaufSessionActive") !== "true");
+    };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }, []);
 
-  // Nach Kategorie filtern (Großschreibung angepasst!)
+  // Nach Kategorie filtern
   const filteredProdukte = produkte.filter(p => p.kategorie === category);
+
+  // Bestände für ein Produkt aus allen Kühlschränken summieren & anzuzeigen
+  const getBestandForProdukt = (produktId: number) => {
+    const bestands = [];
+    let gesamt = 0;
+    for (const k of kuehlschraenke) {
+      const inhalt = k.inhalt.find(i => i.produkt_id === produktId);
+      if (inhalt) {
+        bestands.push({ kuehlschrank: k.name, bestand: inhalt.bestand });
+        gesamt += inhalt.bestand;
+      }
+    }
+    return { gesamt, bestands };
+  };
 
   return (
     <Box sx={{ p: 1 }}>
@@ -177,55 +226,73 @@ const Kasse = () => {
               {filteredProdukte.length === 0 ? (
                 <Typography color="text.secondary">Keine Produkte in dieser Kategorie.</Typography>
               ) : (
-                filteredProdukte.map(prod => (
-                  <Paper
-                    key={prod.id}
-                    sx={{
-                      p: 2,
-                      minWidth: 120,
-                      maxWidth: 180,
-                      textAlign: "center",
-                      bgcolor: CATEGORY_COLORS[prod.kategorie] || "#fff",
-                      boxShadow: 2,
-                      borderRadius: 3,
-                      mx: "auto"
-                    }}
-                  >
-                    <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-                      {prod.name}
-                    </Typography>
-                    <Typography sx={{ mb: 1 }}>
-                      <b>
-                        {typeof prod.preis === "number"
-                          ? prod.preis.toFixed(2)
-                          : Number(prod.preis).toFixed(2)} €
-                      </b>
-                    </Typography>
-                    <Box sx={{ display: "flex", justifyContent: "center", mb: 1 }}>
-                      <Button
-                        variant="contained"
-                        size="small"
-                        sx={{ mr: 1, minWidth: 32 }}
-                        onClick={() => handleAddProdukt(prod)}
-                        aria-label={`Hinzufügen ${prod.name}`}
-                      >
-                        <AddIcon />
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        sx={{ minWidth: 32 }}
-                        onClick={() => handleRemoveProdukt(prod)}
-                        aria-label={`Entfernen ${prod.name}`}
-                      >
-                        <RemoveIcon />
-                      </Button>
-                    </Box>
-                    <Typography sx={{ fontSize: 14 }}>
-                      Im Verkauf: {verkauf.find(v => v.produkt.id === prod.id)?.anzahl || 0}
-                    </Typography>
-                  </Paper>
-                ))
+                filteredProdukte.map(prod => {
+                  const { gesamt, bestands } = getBestandForProdukt(prod.id);
+                  return (
+                    <Paper
+                      key={prod.id}
+                      sx={{
+                        p: 2,
+                        minWidth: 120,
+                        maxWidth: 180,
+                        textAlign: "center",
+                        bgcolor: CATEGORY_COLORS[prod.kategorie] || "#fff",
+                        boxShadow: 2,
+                        borderRadius: 3,
+                        mx: "auto"
+                      }}
+                    >
+                      <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
+                        {prod.name}
+                      </Typography>
+                      <Typography sx={{ mb: 1 }}>
+                        <b>
+                          {typeof prod.preis === "number"
+                            ? prod.preis.toFixed(2)
+                            : Number(prod.preis).toFixed(2)} €
+                        </b>
+                      </Typography>
+                      <Box sx={{ display: "flex", justifyContent: "center", mb: 1 }}>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          sx={{ mr: 1, minWidth: 32 }}
+                          onClick={() => handleAddProdukt(prod)}
+                          aria-label={`Hinzufügen ${prod.name}`}
+                        >
+                          <AddIcon />
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          sx={{ minWidth: 32 }}
+                          onClick={() => handleRemoveProdukt(prod)}
+                          aria-label={`Entfernen ${prod.name}`}
+                        >
+                          <RemoveIcon />
+                        </Button>
+                      </Box>
+
+                      {/* ANPASSUNG: Bestände anzeigen */}
+                      <Typography sx={{ fontSize: 14, mt: 1 }}>
+                        Bestand gesamt: <b>{gesamt}</b>
+                      </Typography>
+                      {bestands.length > 0 && (
+                        <Box>
+                          {bestands.map(b =>
+                            <Typography key={b.kuehlschrank} sx={{ fontSize: 12 }}>
+                              {b.kuehlschrank}: {b.bestand}
+                            </Typography>
+                          )}
+                        </Box>
+                      )}
+
+                      <Typography sx={{ fontSize: 14, mt: 1 }}>
+                        Im Verkauf: {verkauf.find(v => v.produkt.id === prod.id)?.anzahl || 0}
+                      </Typography>
+                    </Paper>
+                  );
+                })
               )}
             </Box>
           )}
