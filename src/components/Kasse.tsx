@@ -20,7 +20,7 @@ type Produkt = {
   id: number;
   name: string;
   preis: number | string;
-  kategorie: string; // z.B. "alkoholfrei", "alkoholisch", "sonstiges"
+  kategorie: string; // z.B. "Alkoholfrei", "Alkoholisch", "Sonstiges"
 };
 
 type VerkaufItem = {
@@ -29,9 +29,9 @@ type VerkaufItem = {
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  alkoholfrei: "#90caf9",    // hellblau
-  alkoholisch: "#ffb74d",    // orange
-  sonstiges: "#c8e6c9"       // grün
+  Alkoholfrei: "#90caf9",    // hellblau
+  Alkoholisch: "#ffb74d",    // orange
+  Sonstiges: "#c8e6c9"       // grün
 };
 
 const Kasse = () => {
@@ -41,7 +41,7 @@ const Kasse = () => {
   const [verkauf, setVerkauf] = useState<VerkaufItem[]>([]);
   const [snack, setSnack] = useState<{ message: string; severity: "success" | "error" }>({ message: "", severity: "success" });
   const [loading, setLoading] = useState(false);
-  const [category, setCategory] = useState<"alkoholfrei" | "alkoholisch" | "sonstiges">("alkoholfrei");
+  const [category, setCategory] = useState<"Alkoholfrei" | "Alkoholisch" | "Sonstiges">("Alkoholfrei");
 
   useEffect(() => {
     setLoading(true);
@@ -120,7 +120,7 @@ const Kasse = () => {
     setVerkauf([]);
   };
 
-  // Nach Kategorie filtern
+  // Nach Kategorie filtern (Großschreibung angepasst!)
   const filteredProdukte = produkte.filter(p => p.kategorie === category);
 
   return (
@@ -152,13 +152,13 @@ const Kasse = () => {
             value={category}
             exclusive
             onChange={(_, value) =>
-              value && setCategory(value as "alkoholfrei" | "alkoholisch" | "sonstiges")
+              value && setCategory(value as "Alkoholfrei" | "Alkoholisch" | "Sonstiges")
             }
             sx={{ mb: 2, display: "flex", flexWrap: "wrap" }}
           >
-            <ToggleButton value="alkoholfrei">Alkoholfrei</ToggleButton>
-            <ToggleButton value="alkoholisch">Alkoholisch</ToggleButton>
-            <ToggleButton value="sonstiges">Sonstiges</ToggleButton>
+            <ToggleButton value="Alkoholfrei">Alkoholfrei</ToggleButton>
+            <ToggleButton value="Alkoholisch">Alkoholisch</ToggleButton>
+            <ToggleButton value="Sonstiges">Sonstiges</ToggleButton>
           </ToggleButtonGroup>
 
           {/* Produkt-Übersicht mit Touch-optimierten Karten */}
