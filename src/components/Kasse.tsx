@@ -60,13 +60,17 @@ const Kasse = () => {
   // Kühlschrankdaten für aktuellen Bestand
   const [kuehlschraenke, setKuehlschraenke] = useState<Kuehlschrank[]>([]);
 
+  // Verkaufssession-ID
+  const [sessionId, setSessionId] = useState<number | null>(() => {
+    const id = localStorage.getItem("verkaufSessionId");
+    return id ? Number(id) : null;
+  });
+
   useEffect(() => {
     setLoading(true);
-    // KORREKTER API-Call für Produkte
     api.get<Produkt[]>("/kiosk/preisliste")
       .then(res => setProdukte(res.data))
       .finally(() => setLoading(false));
-    // KORREKTER API-Call für Kühlschränke
     api.get<Kuehlschrank[]>("/kiosk/kuehlschraenke")
       .then(res => setKuehlschraenke(res.data))
       .catch(() => setKuehlschraenke([]));
@@ -108,19 +112,22 @@ const Kasse = () => {
     });
   };
 
-  // Verkauf bestätigen
+  // Verkauf bestätigen (Session-ID mitschicken!)
   const handleBestaetigen = async () => {
-    if (verkauf.length === 0) return;
+    if (verkauf.length === 0 || !sessionId) {
+      setSnack({ message: "Session nicht aktiv!", severity: "error" });
+      return;
+    }
     try {
       for (const v of verkauf) {
         await api.post("/kiosk/verkauf", {
           produktId: v.produkt.id,
           anzahl: v.anzahl,
+          sessionId: sessionId, // <- WICHTIG!
         });
       }
       setSnack({ message: "Verkauf gebucht!", severity: "success" });
       setVerkauf([]);
-      // Nach Verkauf Bestand neu laden
       api.get<Kuehlschrank[]>("/kiosk/kuehlschraenke")
         .then(res => setKuehlschraenke(res.data))
         .catch(() => setKuehlschraenke([]));
@@ -129,28 +136,42 @@ const Kasse = () => {
     }
   };
 
-  // Verkaufssession starten
-  const handleSessionStart = () => {
-    setSessionActive(true);
-    setStartDialogOpen(false);
-    setVerkauf([]);
-    localStorage.setItem("verkaufSessionActive", "true");
+  // Verkaufssession starten (Session-ID holen und speichern!)
+  const handleSessionStart = async () => {
+    try {
+      const res = await api.post("/kiosk/session/start");
+      setSessionActive(true);
+      setStartDialogOpen(false);
+      setVerkauf([]);
+      setSessionId(res.data.id);
+      localStorage.setItem("verkaufSessionActive", "true");
+      localStorage.setItem("verkaufSessionId", String(res.data.id));
+    } catch {
+      setSnack({ message: "Fehler beim Starten der Session!", severity: "error" });
+    }
   };
 
-  // Verkaufssession beenden
-  const handleSessionEnd = () => {
+  // Verkaufssession beenden (Session-ID auf null setzen, Endpunkt aufrufen)
+  const handleSessionEnd = async () => {
     setSessionActive(false);
     setStartDialogOpen(true);
     setVerkauf([]);
     setSnack({ message: "Verkaufssession beendet!", severity: "success" });
     localStorage.setItem("verkaufSessionActive", "false");
+    if (sessionId) {
+      await api.post(`/kiosk/session/end/${sessionId}`);
+      setSessionId(null);
+      localStorage.removeItem("verkaufSessionId");
+    }
   };
 
-  // Session-Status in allen Tabs synchron halten
+  // Session-Status und Session-ID in allen Tabs synchron halten
   useEffect(() => {
     const handler = () => {
       setSessionActive(localStorage.getItem("verkaufSessionActive") === "true");
       setStartDialogOpen(localStorage.getItem("verkaufSessionActive") !== "true");
+      const id = localStorage.getItem("verkaufSessionId");
+      setSessionId(id ? Number(id) : null);
     };
     window.addEventListener("storage", handler);
     return () => window.removeEventListener("storage", handler);
@@ -193,7 +214,7 @@ const Kasse = () => {
       {sessionActive && (
         <Paper sx={{ p: { xs: 1, sm: 2 }, mb: 1 }}>
           <Typography variant="h5" sx={{ mb: 2 }}>
-            Verkaufssession läuft
+            Verkaufssession läuft {sessionId ? `(ID: ${sessionId})` : ""}
           </Typography>
 
           {/* Kategorie-Toggle */}
