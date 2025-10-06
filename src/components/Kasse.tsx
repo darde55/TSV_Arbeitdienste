@@ -8,11 +8,13 @@ import {
   DialogContent,
   DialogActions,
   Paper,
-  Grid,
   Snackbar,
 } from "@mui/material";
+import AddIcon from "@mui/icons-material/Add";
+import RemoveIcon from "@mui/icons-material/Remove";
 import api from "../api/api";
 
+// Produkt-Typ
 type Produkt = {
   id: number;
   name: string;
@@ -20,6 +22,7 @@ type Produkt = {
   kategorie: string;
 };
 
+// Ein Produkt im aktuellen Verkauf
 type VerkaufItem = {
   produkt: Produkt;
   anzahl: number;
@@ -31,9 +34,13 @@ const Kasse = () => {
   const [produkte, setProdukte] = useState<Produkt[]>([]);
   const [verkauf, setVerkauf] = useState<VerkaufItem[]>([]);
   const [snack, setSnack] = useState<{ message: string; severity: "success" | "error" }>({ message: "", severity: "success" });
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    api.get<Produkt[]>("/kiosk/preisliste").then(res => setProdukte(res.data));
+    setLoading(true);
+    api.get<Produkt[]>("/kiosk/preisliste")
+      .then(res => setProdukte(res.data))
+      .finally(() => setLoading(false));
   }, []);
 
   // Verkaufssumme berechnen
@@ -74,18 +81,19 @@ const Kasse = () => {
 
   // Verkauf bestätigen
   const handleBestaetigen = async () => {
+    if (verkauf.length === 0) return;
     try {
-      // Produkte werden einzeln ans Backend gemeldet
       for (const v of verkauf) {
+        // Kuehlschrank-Logik: Nimm den ersten Kühlschrank, falls mehrere - ggf. anpassen!
+        const kuehlschrankId = 1;
         await api.post("/kiosk/verkauf", {
           produktId: v.produkt.id,
           anzahl: v.anzahl,
-          // kuehlschrankId: ggf. einbauen, falls Auswahl nötig
+          kuehlschrankId,
         });
       }
       setSnack({ message: "Verkauf gebucht!", severity: "success" });
       setVerkauf([]);
-      // Option: Statistiken werden im Backend automatisch gespeichert
     } catch {
       setSnack({ message: "Fehler beim Buchen!", severity: "error" });
     }
@@ -97,7 +105,7 @@ const Kasse = () => {
     setStartDialogOpen(true);
     setVerkauf([]);
     setSnack({ message: "Verkaufssession beendet!", severity: "success" });
-    // Option: Backend-Endpunkt zum Abschließen/Loggen der Session
+    // Backend: Session-Endpunkt falls gewünscht
   };
 
   // Session starten
@@ -129,12 +137,12 @@ const Kasse = () => {
           <Typography variant="h5" sx={{ mb: 2 }}>
             Verkaufssession läuft
           </Typography>
-
-          {/* Produkt-Übersicht */}
-          <Grid container spacing={2} sx={{ mb: 3 }}>
-            {produkte.map(prod => (
-              <Grid item xs={12} sm={6} md={4} key={prod.id}>
-                <Paper sx={{ p: 2, textAlign: "center" }}>
+          {loading ? (
+            <Typography>Lade Produkte …</Typography>
+          ) : (
+            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, mb: 3 }}>
+              {produkte.map(prod => (
+                <Paper key={prod.id} sx={{ p: 2, minWidth: 200, textAlign: "center" }}>
                   <Typography variant="subtitle1">{prod.name}</Typography>
                   <Typography color="text.secondary">{prod.kategorie}</Typography>
                   <Typography sx={{ my: 1 }}><b>{prod.preis.toFixed(2)} €</b></Typography>
@@ -142,22 +150,26 @@ const Kasse = () => {
                     variant="contained"
                     size="small"
                     sx={{ mr: 1 }}
+                    startIcon={<AddIcon />}
                     onClick={() => handleAddProdukt(prod)}
                   >
-                    +
+                    Hinzufügen
                   </Button>
                   <Button
                     variant="outlined"
                     size="small"
+                    startIcon={<RemoveIcon />}
                     onClick={() => handleRemoveProdukt(prod)}
                   >
-                    −
+                    Entfernen
                   </Button>
-                  <Typography sx={{ mt: 1 }}>Im aktuellen Verkauf: {verkauf.find(v => v.produkt.id === prod.id)?.anzahl || 0}</Typography>
+                  <Typography sx={{ mt: 1 }}>
+                    Im aktuellen Verkauf: {verkauf.find(v => v.produkt.id === prod.id)?.anzahl || 0}
+                  </Typography>
                 </Paper>
-              </Grid>
-            ))}
-          </Grid>
+              ))}
+            </Box>
+          )}
 
           {/* Verkaufsliste und Summe */}
           <Paper sx={{ p: 2, mb: 2 }}>
