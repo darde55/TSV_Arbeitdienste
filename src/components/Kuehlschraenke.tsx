@@ -21,7 +21,6 @@ import {
   ToggleButton,
   ToggleButtonGroup
 } from "@mui/material";
-import Grid from "@mui/material/Grid";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -218,78 +217,81 @@ const Kuehlschraenke = () => {
       <Button variant="contained" startIcon={<AddIcon />} onClick={() => setEditOpen(true)} sx={{ mb: 2 }}>
         Kühlschrank hinzufügen
       </Button>
-      <Grid container spacing={2}>
+      {/* Cards ohne Grid */}
+      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
         {kuehlschraenke.map(k => (
-          <Grid item xs={12} sm={6} md={4} key={k.id}>
-            <Card sx={{
-              minHeight: 210,
+          <Card
+            key={k.id}
+            sx={{
+              minWidth: 260,
+              maxWidth: 400,
               bgcolor: "#e3f2fd",
               display: "flex",
               flexDirection: "column",
               justifyContent: "space-between"
-            }}>
-              <CardContent>
-                <Typography variant="h6">{k.name}</Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>Standort: {k.standort}</Typography>
-                <Typography variant="subtitle2">Inhalt:</Typography>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  sx={{ mb: 1, mt: 1 }}
-                  fullWidth
-                  onClick={() => openAddProduktDialog(k)}
-                >
-                  Produkt hinzufügen
-                </Button>
-                <Stack spacing={1} sx={{ mt: 1 }}>
-                  {k.inhalt?.length > 0 ? (
-                    k.inhalt.map(p => (
-                      <Box
-                        key={p.id}
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          bgcolor: "white",
-                          borderRadius: 1,
-                          px: 1,
-                          py: 0.5,
-                          boxShadow: 1
-                        }}
-                      >
-                        <Typography sx={{ fontSize: 15, wordBreak: "break-word" }}>
-                          {p.name} ({p.bestand})
-                        </Typography>
-                        <Box sx={{ display: "flex", gap: 0.5 }}>
-                          <IconButton size="small" onClick={() => openProduktDialog(k, p)}>
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton size="small" color="error" onClick={() => { setSelectedKuehlschrank(k); setSelectedProdukt(p); setProduktDialogOpen(true); }}>
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Box>
+            }}
+          >
+            <CardContent>
+              <Typography variant="h6">{k.name}</Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>Standort: {k.standort}</Typography>
+              <Typography variant="subtitle2">Inhalt:</Typography>
+              <Button
+                size="small"
+                variant="outlined"
+                sx={{ mb: 1, mt: 1 }}
+                fullWidth
+                onClick={() => openAddProduktDialog(k)}
+              >
+                Produkt hinzufügen
+              </Button>
+              <Stack spacing={1} sx={{ mt: 1 }}>
+                {k.inhalt?.length > 0 ? (
+                  k.inhalt.map(p => (
+                    <Box
+                      key={p.id}
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        bgcolor: "white",
+                        borderRadius: 1,
+                        px: 1,
+                        py: 0.5,
+                        boxShadow: 1
+                      }}
+                    >
+                      <Typography sx={{ fontSize: 15, wordBreak: "break-word" }}>
+                        {p.name} ({p.bestand})
+                      </Typography>
+                      <Box sx={{ display: "flex", gap: 0.5 }}>
+                        <IconButton size="small" onClick={() => openProduktDialog(k, p)}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton size="small" color="error" onClick={() => { setSelectedKuehlschrank(k); setSelectedProdukt(p); setProduktDialogOpen(true); }}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
                       </Box>
-                    ))
-                  ) : (
-                    <Typography color="text.secondary">leer</Typography>
-                  )}
-                </Stack>
-              </CardContent>
-              <CardActions sx={{ mt: "auto" }}>
-                <Button
-                  size="small"
-                  color="error"
-                  variant="outlined"
-                  fullWidth
-                  onClick={() => { setKuehlschrankToDelete(k); setDeleteKuehlschrankDialogOpen(true); }}
-                >
-                  Löschen
-                </Button>
-              </CardActions>
-            </Card>
-          </Grid>
+                    </Box>
+                  ))
+                ) : (
+                  <Typography color="text.secondary">leer</Typography>
+                )}
+              </Stack>
+            </CardContent>
+            <CardActions sx={{ mt: "auto" }}>
+              <Button
+                size="small"
+                color="error"
+                variant="outlined"
+                fullWidth
+                onClick={() => { setKuehlschrankToDelete(k); setDeleteKuehlschrankDialogOpen(true); }}
+              >
+                Löschen
+              </Button>
+            </CardActions>
+          </Card>
         ))}
-      </Grid>
+      </Box>
 
       {/* Umschalter für Diagramm */}
       <Box sx={{ mt: 4, mb: 1 }}>
