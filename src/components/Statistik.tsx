@@ -31,19 +31,19 @@ import api from "../api/api";
 // Typdefinitionen für Statistik-Daten
 type UmsatzDatum = {
   monat: string;
-  umsatz: number;
+  umsatz: number | string;
 };
 
 type BestsellerDatum = {
   name: string;
-  verkauft: number;
+  verkauft: number | string;
 };
 
 type VerkaufDatum = {
   id: number;
   verkauft_am: string;
   name: string;
-  anzahl: number;
+  anzahl: number | string;
   kuehlschrank_id: number;
   username: string;
 };
@@ -53,8 +53,8 @@ type Verkaufssession = {
   start: string;
   ende: string | null;
   benutzer: string;
-  umsatz: number;
-  produkte: number;
+  umsatz: number | string | null;
+  produkte: number | string | null;
 };
 
 const COLORS = [
@@ -159,7 +159,12 @@ const Statistik = () => {
           <Typography variant="h6" sx={{ mb: 2 }}>Umsatz</Typography>
           {loading ? <CircularProgress /> : (
             <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={umsatz}>
+              <BarChart
+                data={umsatz.map(u => ({
+                  ...u,
+                  umsatz: typeof u.umsatz === "number" ? u.umsatz : Number(u.umsatz)
+                }))}
+              >
                 <XAxis
                   dataKey="monat"
                   tickFormatter={m => new Date(m).toLocaleDateString("de-DE", { year: 'numeric', month: 'short' })}
@@ -179,7 +184,10 @@ const Statistik = () => {
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
                 <Pie
-                  data={bestseller}
+                  data={bestseller.map(b => ({
+                    ...b,
+                    verkauft: typeof b.verkauft === "number" ? b.verkauft : Number(b.verkauft)
+                  }))}
                   dataKey="verkauft"
                   nameKey="name"
                   cx="50%"
@@ -217,7 +225,9 @@ const Statistik = () => {
               <TableRow key={v.id}>
                 <TableCell>{new Date(v.verkauft_am).toLocaleString("de-DE")}</TableCell>
                 <TableCell>{v.name}</TableCell>
-                <TableCell>{v.anzahl}</TableCell>
+                <TableCell>
+                  {typeof v.anzahl === "number" ? v.anzahl : Number(v.anzahl)}
+                </TableCell>
                 <TableCell>{v.kuehlschrank_id}</TableCell>
                 <TableCell>{v.username}</TableCell>
               </TableRow>
@@ -245,8 +255,12 @@ const Statistik = () => {
                 <TableCell>{new Date(s.start).toLocaleString("de-DE")}</TableCell>
                 <TableCell>{s.ende ? new Date(s.ende).toLocaleString("de-DE") : "-"}</TableCell>
                 <TableCell>{s.benutzer}</TableCell>
-                <TableCell>{s.umsatz?.toFixed(2)} €</TableCell>
-                <TableCell>{s.produkte}</TableCell>
+                <TableCell>
+                  {s.umsatz ? Number(s.umsatz).toFixed(2) : "0.00"} €
+                </TableCell>
+                <TableCell>
+                  {s.produkte ? Number(s.produkte) : 0}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
