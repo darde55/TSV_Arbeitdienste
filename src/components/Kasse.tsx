@@ -14,15 +14,13 @@ import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
 import api from "../api/api";
 
-// Produkt-Typ
 type Produkt = {
   id: number;
   name: string;
-  preis: number;
+  preis: number | string;
   kategorie: string;
 };
 
-// Ein Produkt im aktuellen Verkauf
 type VerkaufItem = {
   produkt: Produkt;
   anzahl: number;
@@ -43,15 +41,14 @@ const Kasse = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  // Verkaufssumme berechnen
-  const gesamtpreis = verkauf.reduce((sum, v) => sum + v.produkt.preis * v.anzahl, 0);
+  // Verkaufssumme berechnen (preis als Zahl absichern)
+  const gesamtpreis = verkauf.reduce((sum, v) => sum + Number(v.produkt.preis) * v.anzahl, 0);
 
   // Produkt zu Verkauf hinzufügen/erhöhen
   const handleAddProdukt = (produkt: Produkt) => {
     setVerkauf(prev => {
       const idx = prev.findIndex(v => v.produkt.id === produkt.id);
       if (idx >= 0) {
-        // Anzahl erhöhen
         const copy = [...prev];
         copy[idx].anzahl += 1;
         return copy;
@@ -84,7 +81,7 @@ const Kasse = () => {
     if (verkauf.length === 0) return;
     try {
       for (const v of verkauf) {
-        // Kuehlschrank-Logik: Nimm den ersten Kühlschrank, falls mehrere - ggf. anpassen!
+        // Tipp: kuehlschrankId ggf. anpassen!
         const kuehlschrankId = 1;
         await api.post("/kiosk/verkauf", {
           produktId: v.produkt.id,
@@ -105,7 +102,6 @@ const Kasse = () => {
     setStartDialogOpen(true);
     setVerkauf([]);
     setSnack({ message: "Verkaufssession beendet!", severity: "success" });
-    // Backend: Session-Endpunkt falls gewünscht
   };
 
   // Session starten
@@ -145,7 +141,9 @@ const Kasse = () => {
                 <Paper key={prod.id} sx={{ p: 2, minWidth: 200, textAlign: "center" }}>
                   <Typography variant="subtitle1">{prod.name}</Typography>
                   <Typography color="text.secondary">{prod.kategorie}</Typography>
-                  <Typography sx={{ my: 1 }}><b>{prod.preis.toFixed(2)} €</b></Typography>
+                  <Typography sx={{ my: 1 }}>
+                    <b>{typeof prod.preis === "number" ? prod.preis.toFixed(2) : Number(prod.preis).toFixed(2)} €</b>
+                  </Typography>
                   <Button
                     variant="contained"
                     size="small"
@@ -179,7 +177,9 @@ const Kasse = () => {
             ) : (
               verkauf.map(v => (
                 <Typography key={v.produkt.id}>
-                  {v.produkt.name} × {v.anzahl} = {(v.produkt.preis * v.anzahl).toFixed(2)} €
+                  {v.produkt.name} × {v.anzahl} = {typeof v.produkt.preis === "number"
+                    ? (v.produkt.preis * v.anzahl).toFixed(2)
+                    : (Number(v.produkt.preis) * v.anzahl).toFixed(2)} €
                 </Typography>
               ))
             )}
