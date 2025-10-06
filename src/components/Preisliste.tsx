@@ -53,7 +53,8 @@ const Preisliste: React.FC = () => {
 
   const fetchProdukte = async () => {
     try {
-      const res = await api.get<Produkt[]>("/api/kiosk/preisliste");
+      // WICHTIG: Ohne /api am Anfang!
+      const res = await api.get<Produkt[]>("/kiosk/preisliste");
       setProdukte(
         res.data.map((p) => ({
           ...p,
@@ -67,7 +68,7 @@ const Preisliste: React.FC = () => {
 
   const handleAddProdukt = async () => {
     try {
-      await api.post("/api/kiosk/preisliste", form);
+      await api.post("/kiosk/preisliste", form);
       setEditOpen(false);
       setForm({ name: "", preis: 0, kategorie: kategorien[0].value });
       setEditMode(null);
@@ -91,7 +92,7 @@ const Preisliste: React.FC = () => {
   const handleSaveEdit = async () => {
     if (editMode === null) return;
     try {
-      await api.put(`/api/kiosk/preisliste/${editMode}`, form);
+      await api.put(`/kiosk/preisliste/${editMode}`, form);
       setEditOpen(false);
       setForm({ name: "", preis: 0, kategorie: kategorien[0].value });
       setEditMode(null);
@@ -104,7 +105,7 @@ const Preisliste: React.FC = () => {
 
   const handleDeleteProdukt = async (id: number) => {
     try {
-      await api.delete(`/api/kiosk/preisliste/${id}`);
+      await api.delete(`/kiosk/preisliste/${id}`);
       setSnack("Produkt gelöscht!");
       fetchProdukte();
     } catch {
