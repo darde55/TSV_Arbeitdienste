@@ -62,11 +62,11 @@ const Kasse = () => {
 
   useEffect(() => {
     setLoading(true);
-    api.get<Produkt[]>("/api/kiosk/preisliste")
+    api.get<Produkt[]>("/kiosk/preisliste")
       .then(res => setProdukte(res.data))
       .finally(() => setLoading(false));
     // Kühlschrankdaten holen
-    api.get<Kuehlschrank[]>("/api/kiosk/kuehlschraenke")
+    api.get<Kuehlschrank[]>("/kiosk/kuehlschraenke")
       .then(res => setKuehlschraenke(res.data))
       .catch(() => setKuehlschraenke([]));
   }, []);
@@ -112,7 +112,7 @@ const Kasse = () => {
     if (verkauf.length === 0) return;
     try {
       for (const v of verkauf) {
-        await api.post("/api/kiosk/verkauf", {
+        await api.post("/kiosk/verkauf", {
           produktId: v.produkt.id,
           anzahl: v.anzahl,
         });
@@ -120,7 +120,7 @@ const Kasse = () => {
       setSnack({ message: "Verkauf gebucht!", severity: "success" });
       setVerkauf([]);
       // Nach Verkauf Bestand neu laden
-      api.get<Kuehlschrank[]>("/api/kiosk/kuehlschraenke")
+      api.get<Kuehlschrank[]>("/kiosk/kuehlschraenke")
         .then(res => setKuehlschraenke(res.data))
         .catch(() => setKuehlschraenke([]));
     } catch {
