@@ -30,7 +30,7 @@ import api from "../api/api";
 
 // Typdefinitionen für Statistik-Daten
 type UmsatzDatum = {
-  monat: string;      // ISO-String (z.B. "2025-10-01T00:00:00.000Z")
+  monat: string;
   umsatz: number;
 };
 
@@ -48,6 +48,15 @@ type VerkaufDatum = {
   username: string;
 };
 
+type Verkaufssession = {
+  id: number;
+  start: string;
+  ende: string | null;
+  benutzer: string;
+  umsatz: number;
+  produkte: number;
+};
+
 const COLORS = [
   "#0088FE", "#00C49F", "#FFBB28", "#FF8042",
   "#ad1457", "#7b1fa2", "#388e3c", "#1976d2", "#fbc02d", "#c62828"
@@ -61,6 +70,7 @@ const Statistik = () => {
   const [umsatz, setUmsatz] = useState<UmsatzDatum[]>([]);
   const [bestseller, setBestseller] = useState<BestsellerDatum[]>([]);
   const [verkaeufe, setVerkaeufe] = useState<VerkaufDatum[]>([]);
+  const [sessions, setSessions] = useState<Verkaufssession[]>([]);
 
   useEffect(() => {
     setLoading(true);
@@ -69,6 +79,7 @@ const Statistik = () => {
       .finally(() => setLoading(false));
     fetchBestseller();
     fetchVerkaeufe();
+    fetchSessions();
     // eslint-disable-next-line
   }, []);
 
@@ -85,6 +96,11 @@ const Statistik = () => {
   // Verkäufe für Tabelle
   const fetchVerkaeufe = () => {
     api.get("/kiosk/statistik/verkaeufe").then(res => setVerkaeufe(res.data));
+  };
+
+  // Verkaufssessions für neuen Bereich
+  const fetchSessions = () => {
+    api.get("/kiosk/statistik/sessions").then(res => setSessions(res.data));
   };
 
   // Jahr/Monat-Arrays für Filter
@@ -184,7 +200,7 @@ const Statistik = () => {
       </Box>
 
       {/* Tabellenansicht */}
-      <Paper sx={{ p: 2 }}>
+      <Paper sx={{ p: 2, mb: 4 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>Letzte Verkäufe</Typography>
         <Table>
           <TableHead>
@@ -204,6 +220,33 @@ const Statistik = () => {
                 <TableCell>{v.anzahl}</TableCell>
                 <TableCell>{v.kuehlschrank_id}</TableCell>
                 <TableCell>{v.username}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Paper>
+
+      {/* Verkaufssessions-Bereich */}
+      <Paper sx={{ p: 2 }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>Verkaufssessions</Typography>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Start</TableCell>
+              <TableCell>Ende</TableCell>
+              <TableCell>Benutzer</TableCell>
+              <TableCell>Umsatz</TableCell>
+              <TableCell>Verkaufte Produkte</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {sessions.map(s => (
+              <TableRow key={s.id}>
+                <TableCell>{new Date(s.start).toLocaleString("de-DE")}</TableCell>
+                <TableCell>{s.ende ? new Date(s.ende).toLocaleString("de-DE") : "-"}</TableCell>
+                <TableCell>{s.benutzer}</TableCell>
+                <TableCell>{s.umsatz?.toFixed(2)} €</TableCell>
+                <TableCell>{s.produkte}</TableCell>
               </TableRow>
             ))}
           </TableBody>
