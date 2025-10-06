@@ -28,7 +28,6 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import api from "../api/api";
 import { BarChart } from "@mui/x-charts";
 import type { SelectChangeEvent } from "@mui/material/Select";
-import Alert from "@mui/material/Alert";
 
 type KuehlschrankProdukt = {
   id: number;
@@ -70,6 +69,7 @@ const Kuehlschraenke = () => {
   const [addProduktId, setAddProduktId] = useState<string>("");
   const [addProduktBestand, setAddProduktBestand] = useState<number>(0);
 
+  // Toggle für Balkendiagramm
   const [diagrammModus, setDiagrammModus] = useState<"einzeln" | "gesamt">("einzeln");
 
   useEffect(() => {
@@ -93,6 +93,7 @@ const Kuehlschraenke = () => {
     } catch { /* ignore */ }
   };
 
+  // Kühlschrank anlegen
   const handleAddKuehlschrank = async () => {
     try {
       await api.post("/kiosk/kuehlschraenke", form);
@@ -105,6 +106,7 @@ const Kuehlschraenke = () => {
     }
   };
 
+  // Kühlschrank löschen
   const handleDeleteKuehlschrank = async () => {
     if (!kuehlschrankToDelete) return;
     try {
@@ -118,6 +120,7 @@ const Kuehlschraenke = () => {
     }
   };
 
+  // Produkt bearbeiten im Kühlschrank
   const openProduktDialog = (k: Kuehlschrank, p: KuehlschrankProdukt) => {
     setSelectedKuehlschrank(k);
     setSelectedProdukt(p);
@@ -125,6 +128,7 @@ const Kuehlschraenke = () => {
     setProduktDialogOpen(true);
   };
 
+  // Produktbestand speichern
   const handleSaveProdukt = async () => {
     if (!selectedKuehlschrank || !selectedProdukt) return;
     try {
@@ -143,6 +147,7 @@ const Kuehlschraenke = () => {
     }
   };
 
+  // Produkt aus Kühlschrank löschen
   const handleDeleteProdukt = async () => {
     if (!selectedKuehlschrank || !selectedProdukt) return;
     try {
@@ -158,6 +163,7 @@ const Kuehlschraenke = () => {
     }
   };
 
+  // Dialog für neues Produkt im Kühlschrank öffnen
   const openAddProduktDialog = (k: Kuehlschrank) => {
     setSelectedKuehlschrank(k);
     setAddProduktDialogOpen(true);
@@ -165,6 +171,7 @@ const Kuehlschraenke = () => {
     setAddProduktBestand(0);
   };
 
+  // Neues Produkt im Kühlschrank speichern
   const handleAddProdukt = async () => {
     if (!selectedKuehlschrank || addProduktId === "" || isNaN(Number(addProduktId))) return;
     try {
@@ -183,6 +190,7 @@ const Kuehlschraenke = () => {
     }
   };
 
+  // --- Balkendiagramm: Einzelbestand oder Gesamtbestand ---
   const einzelLabels: string[] = [];
   const einzelData: number[] = [];
   kuehlschraenke.forEach(k => {
@@ -192,6 +200,7 @@ const Kuehlschraenke = () => {
     });
   });
 
+  // Gesamtbestand je Produkt
   const gesamtMap = new Map<string, number>();
   kuehlschraenke.forEach(k => {
     k.inhalt.forEach(p => {
@@ -282,6 +291,7 @@ const Kuehlschraenke = () => {
         ))}
       </Grid>
 
+      {/* Umschalter für Diagramm */}
       <Box sx={{ mt: 4, mb: 1 }}>
         <ToggleButtonGroup
           color="primary"
@@ -321,6 +331,7 @@ const Kuehlschraenke = () => {
         </Box>
       </Box>
 
+      {/* Dialog Kühlschrank anlegen */}
       <Dialog open={editOpen} onClose={() => setEditOpen(false)}>
         <DialogTitle>Kühlschrank hinzufügen</DialogTitle>
         <DialogContent>
@@ -344,6 +355,7 @@ const Kuehlschraenke = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Dialog Kühlschrank löschen */}
       <Dialog open={deleteKuehlschrankDialogOpen} onClose={() => setDeleteKuehlschrankDialogOpen(false)}>
         <DialogTitle>Kühlschrank löschen</DialogTitle>
         <DialogContent>
@@ -361,6 +373,7 @@ const Kuehlschraenke = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Dialog Produkt bearbeiten/löschen */}
       <Dialog open={produktDialogOpen} onClose={() => setProduktDialogOpen(false)}>
         <DialogTitle>
           Produkt bearbeiten – {selectedKuehlschrank?.name}
@@ -385,6 +398,7 @@ const Kuehlschraenke = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Dialog Produkt hinzufügen */}
       <Dialog open={addProduktDialogOpen} onClose={() => setAddProduktDialogOpen(false)}>
         <DialogTitle>Produkt hinzufügen – {selectedKuehlschrank?.name}</DialogTitle>
         <DialogContent>
@@ -416,16 +430,14 @@ const Kuehlschraenke = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Snackbar ohne Alert */}
       <Snackbar
         open={!!snack.message}
         autoHideDuration={3000}
         onClose={() => setSnack({ message: "", severity: "success" })}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      >
-        <Alert severity={snack.severity} onClose={() => setSnack({ message: "", severity: "success" })} sx={{ width: '100%' }}>
-          {snack.message}
-        </Alert>
-      </Snackbar>
+        message={snack.message}
+      />
     </Box>
   );
 };
