@@ -2,197 +2,207 @@ import { useState, useEffect } from "react";
 import {
   Box,
   Typography,
-  Paper,
   Button,
-  Snackbar,
-  Alert,
   Dialog,
   DialogTitle,
   DialogContent,
-  Table,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableBody,
-  TextField,
-  Switch,
-  FormControlLabel,
+  DialogActions,
+  Paper,
+  Grid,
+  Snackbar,
 } from "@mui/material";
 import api from "../api/api";
 
-type KuehlschrankProdukt = {
+type Produkt = {
   id: number;
   name: string;
-  bestand: number;
-  preis?: number;
-  kategorie?: string;
-};
-type Kuehlschrank = {
-  id: number;
-  name: string;
-  standort: string;
-  inhalt: KuehlschrankProdukt[];
-};
-type AuswertungRow = {
-  produkt: string;
+  preis: number;
   kategorie: string;
-  verkauft: number;
-  umsatz: number;
+};
+
+type VerkaufItem = {
+  produkt: Produkt;
+  anzahl: number;
 };
 
 const Kasse = () => {
-  const [kuehlschraenke, setKuehlschraenke] = useState<Kuehlschrank[]>([]);
-  const [snack, setSnack] = useState<string>("");
-  const [auswertungOpen, setAuswertungOpen] = useState(false);
-  const [auswertung, setAuswertung] = useState<AuswertungRow[]>([]);
-  const [anzahl, setAnzahl] = useState<{ [id: number]: number }>({});
-  const [pfandAktiv, setPfandAktiv] = useState(false);
+  const [sessionActive, setSessionActive] = useState(false);
+  const [startDialogOpen, setStartDialogOpen] = useState(true);
+  const [produkte, setProdukte] = useState<Produkt[]>([]);
+  const [verkauf, setVerkauf] = useState<VerkaufItem[]>([]);
+  const [snack, setSnack] = useState<{ message: string; severity: "success" | "error" }>({ message: "", severity: "success" });
 
   useEffect(() => {
-    fetchKuehlschraenke();
+    api.get<Produkt[]>("/kiosk/preisliste").then(res => setProdukte(res.data));
   }, []);
 
-  const fetchKuehlschraenke = async () => {
-    const res = await api.get<Kuehlschrank[]>("/kiosk/kuehlschraenke");
-    setKuehlschraenke(res.data);
-  };
+  // Verkaufssumme berechnen
+  const gesamtpreis = verkauf.reduce((sum, v) => sum + v.produkt.preis * v.anzahl, 0);
 
-  const handleVerkauf = async (
-    produktId: number,
-    kuehlschrankId: number,
-    preis?: number
-  ) => {
-    const count = anzahl[produktId] ?? 1;
-    const pfand = pfandAktiv ? 1 * count : 0;
-    await api.post("/kiosk/verkauf", {
-      produktId,
-      anzahl: count,
-      kuehlschrankId,
+  // Produkt zu Verkauf hinzufügen/erhöhen
+  const handleAddProdukt = (produkt: Produkt) => {
+    setVerkauf(prev => {
+      const idx = prev.findIndex(v => v.produkt.id === produkt.id);
+      if (idx >= 0) {
+        // Anzahl erhöhen
+        const copy = [...prev];
+        copy[idx].anzahl += 1;
+        return copy;
+      } else {
+        return [...prev, { produkt, anzahl: 1 }];
+      }
     });
-    setSnack(
-      `Verkauf gebucht! Gesamt: ${((preis ?? 0) * count + pfand).toFixed(2)} €`
-    );
-    fetchKuehlschraenke();
-    setAnzahl((a) => ({ ...a, [produktId]: 1 }));
   };
 
-  const loadAuswertung = async () => {
-    const date = new Date();
-    const yyyyMMdd = date.toISOString().split("T")[0];
-    const from = `${yyyyMMdd}T00:00:00`;
-    const to = `${yyyyMMdd}T23:59:59`;
-    const res = await api.get<AuswertungRow[]>(
-      `/kiosk/auswertung?from=${from}&to=${to}`
-    );
-    setAuswertung(res.data);
-    setAuswertungOpen(true);
+  // Produkt aus Verkauf entfernen/erniedrigen
+  const handleRemoveProdukt = (produkt: Produkt) => {
+    setVerkauf(prev => {
+      const idx = prev.findIndex(v => v.produkt.id === produkt.id);
+      if (idx >= 0) {
+        const copy = [...prev];
+        if (copy[idx].anzahl > 1) {
+          copy[idx].anzahl -= 1;
+          return copy;
+        } else {
+          return copy.filter((_, i) => i !== idx);
+        }
+      } else {
+        return prev;
+      }
+    });
+  };
+
+  // Verkauf bestätigen
+  const handleBestaetigen = async () => {
+    try {
+      // Produkte werden einzeln ans Backend gemeldet
+      for (const v of verkauf) {
+        await api.post("/kiosk/verkauf", {
+          produktId: v.produkt.id,
+          anzahl: v.anzahl,
+          // kuehlschrankId: ggf. einbauen, falls Auswahl nötig
+        });
+      }
+      setSnack({ message: "Verkauf gebucht!", severity: "success" });
+      setVerkauf([]);
+      // Option: Statistiken werden im Backend automatisch gespeichert
+    } catch {
+      setSnack({ message: "Fehler beim Buchen!", severity: "error" });
+    }
+  };
+
+  // Verkaufssession beenden
+  const handleSessionEnd = () => {
+    setSessionActive(false);
+    setStartDialogOpen(true);
+    setVerkauf([]);
+    setSnack({ message: "Verkaufssession beendet!", severity: "success" });
+    // Option: Backend-Endpunkt zum Abschließen/Loggen der Session
+  };
+
+  // Session starten
+  const handleSessionStart = () => {
+    setSessionActive(true);
+    setStartDialogOpen(false);
+    setVerkauf([]);
   };
 
   return (
-    <Box sx={{ mt: 3 }}>
-      <Typography variant="h6" mb={2}>
-        Kasse
-      </Typography>
-      <FormControlLabel
-        control={
-          <Switch
-            checked={pfandAktiv}
-            onChange={(_, checked) => setPfandAktiv(checked)}
-            color="primary"
-          />
-        }
-        label="Pfand aktivieren (1 € auf jedes Produkt)"
-        sx={{ mb: 2 }}
-      />
-      <Button variant="outlined" sx={{ mb: 2 }} onClick={loadAuswertung}>
-        Auswertung anzeigen
-      </Button>
-      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
-        {kuehlschraenke.flatMap((k) =>
-          k.inhalt.map((prod) => (
-            <Paper key={prod.id} sx={{ p: 2, minWidth: 150, textAlign: "center" }}>
-              <Typography>
-                <b>{prod.name}</b>
-              </Typography>
-              <Typography variant="body2" sx={{ color: "#666" }}>
-                Kategorie: {prod.kategorie ?? "-"}
-              </Typography>
-              <Typography variant="body2">Bestand: {prod.bestand}</Typography>
-              <Typography variant="body2" sx={{ mb: 1 }}>
-                Preis: {prod.preis ? prod.preis.toFixed(2) : "-"} €
-                {pfandAktiv ? " + 1 € Pfand" : ""}
-              </Typography>
-              <TextField
-                label="Stückzahl"
-                type="number"
-                size="small"
-                value={anzahl[prod.id] ?? 1}
-                onChange={(e) =>
-                  setAnzahl((a) => ({
-                    ...a,
-                    [prod.id]: Math.max(1, Number(e.target.value)),
-                  }))
-                }
-                sx={{ mb: 1, width: 80 }}
-                inputProps={{ min: 1, max: prod.bestand }}
-              />
-              <Button
-                variant="contained"
-                color="success"
-                fullWidth
-                sx={{ mt: 1 }}
-                onClick={() => handleVerkauf(prod.id, k.id, prod.preis)}
-                disabled={prod.bestand <= 0}
-              >
-                Verkaufen
-              </Button>
-            </Paper>
-          ))
-        )}
-      </Box>
-      <Snackbar
-        open={!!snack}
-        autoHideDuration={3000}
-        onClose={() => setSnack("")}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      >
-        <Alert severity="success" onClose={() => setSnack("")}>
-          {snack}
-        </Alert>
-      </Snackbar>
-      <Dialog open={auswertungOpen} onClose={() => setAuswertungOpen(false)}>
-        <DialogTitle>Verkaufs-Auswertung</DialogTitle>
+    <Box sx={{ p: 2 }}>
+      {/* Pop-up zum Session-Start */}
+      <Dialog open={startDialogOpen}>
+        <DialogTitle>Neuen Verkauf starten?</DialogTitle>
         <DialogContent>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Produkt</TableCell>
-                <TableCell>Kategorie</TableCell>
-                <TableCell>Verkauft</TableCell>
-                <TableCell>Umsatz (€)</TableCell>
-                <TableCell>Pfand (€)</TableCell>
-                <TableCell>Gesamt (€)</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {auswertung.map((row) => {
-                const pfand = pfandAktiv ? row.verkauft * 1 : 0;
-                const gesamt = row.umsatz + pfand;
-                return (
-                  <TableRow key={row.produkt}>
-                    <TableCell>{row.produkt}</TableCell>
-                    <TableCell>{row.kategorie}</TableCell>
-                    <TableCell>{row.verkauft}</TableCell>
-                    <TableCell>{row.umsatz.toFixed(2)}</TableCell>
-                    <TableCell>{pfand.toFixed(2)}</TableCell>
-                    <TableCell>{gesamt.toFixed(2)}</TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+          <Typography>Möchtest du eine neue Verkaufssession beginnen?</Typography>
         </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setStartDialogOpen(false)}>Abbrechen</Button>
+          <Button variant="contained" onClick={handleSessionStart}>
+            Ja, starten
+          </Button>
+        </DialogActions>
       </Dialog>
+
+      {/* Hauptbereich nur sichtbar bei aktiver Session */}
+      {sessionActive && (
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="h5" sx={{ mb: 2 }}>
+            Verkaufssession läuft
+          </Typography>
+
+          {/* Produkt-Übersicht */}
+          <Grid container spacing={2} sx={{ mb: 3 }}>
+            {produkte.map(prod => (
+              <Grid item xs={12} sm={6} md={4} key={prod.id}>
+                <Paper sx={{ p: 2, textAlign: "center" }}>
+                  <Typography variant="subtitle1">{prod.name}</Typography>
+                  <Typography color="text.secondary">{prod.kategorie}</Typography>
+                  <Typography sx={{ my: 1 }}><b>{prod.preis.toFixed(2)} €</b></Typography>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    sx={{ mr: 1 }}
+                    onClick={() => handleAddProdukt(prod)}
+                  >
+                    +
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => handleRemoveProdukt(prod)}
+                  >
+                    −
+                  </Button>
+                  <Typography sx={{ mt: 1 }}>Im aktuellen Verkauf: {verkauf.find(v => v.produkt.id === prod.id)?.anzahl || 0}</Typography>
+                </Paper>
+              </Grid>
+            ))}
+          </Grid>
+
+          {/* Verkaufsliste und Summe */}
+          <Paper sx={{ p: 2, mb: 2 }}>
+            <Typography variant="h6">Produkte im Verkauf:</Typography>
+            {verkauf.length === 0 ? (
+              <Typography color="text.secondary">Keine Produkte gewählt.</Typography>
+            ) : (
+              verkauf.map(v => (
+                <Typography key={v.produkt.id}>
+                  {v.produkt.name} × {v.anzahl} = {(v.produkt.preis * v.anzahl).toFixed(2)} €
+                </Typography>
+              ))
+            )}
+            <Typography sx={{ mt: 2, fontWeight: "bold" }}>
+              Gesamtpreis: {gesamtpreis.toFixed(2)} €
+            </Typography>
+          </Paper>
+
+          {/* Button Verkauf bestätigen */}
+          <Button
+            variant="contained"
+            color="success"
+            onClick={handleBestaetigen}
+            disabled={verkauf.length === 0}
+            sx={{ mr: 2 }}
+          >
+            Verkauf bestätigen
+          </Button>
+          {/* Button Verkauf beenden */}
+          <Button
+            variant="outlined"
+            color="error"
+            onClick={handleSessionEnd}
+          >
+            Verkauf beenden
+          </Button>
+        </Paper>
+      )}
+
+      <Snackbar
+        open={!!snack.message}
+        autoHideDuration={2500}
+        onClose={() => setSnack({ message: "", severity: "success" })}
+        message={snack.message}
+      />
     </Box>
   );
 };
