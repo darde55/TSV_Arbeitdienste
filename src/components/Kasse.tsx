@@ -62,12 +62,12 @@ const Kasse = () => {
 
   useEffect(() => {
     setLoading(true);
-    // KORREKT: API-Route für Produkte
-    api.get<Produkt[]>("/components/preisliste")
+    // KORREKTER API-Call für Produkte
+    api.get<Produkt[]>("/kiosk/preisliste")
       .then(res => setProdukte(res.data))
       .finally(() => setLoading(false));
-    // KORREKT: API-Route für Kühlschränke
-    api.get<Kuehlschrank[]>("/components/kuehlschraenke")
+    // KORREKTER API-Call für Kühlschränke
+    api.get<Kuehlschrank[]>("/kiosk/kuehlschraenke")
       .then(res => setKuehlschraenke(res.data))
       .catch(() => setKuehlschraenke([]));
   }, []);
@@ -113,7 +113,7 @@ const Kasse = () => {
     if (verkauf.length === 0) return;
     try {
       for (const v of verkauf) {
-        await api.post("/components/verkauf", {
+        await api.post("/kiosk/verkauf", {
           produktId: v.produkt.id,
           anzahl: v.anzahl,
         });
@@ -121,7 +121,7 @@ const Kasse = () => {
       setSnack({ message: "Verkauf gebucht!", severity: "success" });
       setVerkauf([]);
       // Nach Verkauf Bestand neu laden
-      api.get<Kuehlschrank[]>("/components/kuehlschraenke")
+      api.get<Kuehlschrank[]>("/kiosk/kuehlschraenke")
         .then(res => setKuehlschraenke(res.data))
         .catch(() => setKuehlschraenke([]));
     } catch {
@@ -274,7 +274,7 @@ const Kasse = () => {
                         </Button>
                       </Box>
 
-                      {/* ANPASSUNG: Bestände anzeigen */}
+                      {/* Bestände anzeigen */}
                       <Typography sx={{ fontSize: 14, mt: 1 }}>
                         Bestand gesamt: <b>{gesamt}</b>
                       </Typography>
