@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   Box,
   Button,
@@ -62,6 +62,7 @@ const Kuehlschraenke = () => {
   const [selectedKuehlschrank, setSelectedKuehlschrank] = useState<Kuehlschrank | null>(null);
   const [selectedProdukt, setSelectedProdukt] = useState<KuehlschrankProdukt | null>(null);
   const [produktBestand, setProduktBestand] = useState<number>(0);
+  const [deleteProduktConfirm, setDeleteProduktConfirm] = useState(false);
 
   // Produkt hinzufügen Dialog
   const [addProduktDialogOpen, setAddProduktDialogOpen] = useState(false);
@@ -70,27 +71,33 @@ const Kuehlschraenke = () => {
 
   // Toggle für Balkendiagramm
   const [diagrammModus, setDiagrammModus] = useState<"einzeln" | "gesamt">("einzeln");
+  // Kühlschrank-Auswahl für Diagramm
+  const [diagramKuehlschrankId, setDiagramKuehlschrankId] = useState<string>("");
 
-  useEffect(() => {
-    fetchKuehlschraenke();
-    fetchPreisliste();
-  }, []);
-
-  const fetchKuehlschraenke = async () => {
+  // useCallback für Linting und sauberes useEffect
+  const fetchKuehlschraenke = useCallback(async () => {
     try {
       const res = await api.get<Kuehlschrank[]>("/kiosk/kuehlschraenke");
       setKuehlschraenke(res.data);
+      if (res.data.length > 0 && diagramKuehlschrankId === "") {
+        setDiagramKuehlschrankId(String(res.data[0].id));
+      }
     } catch {
       setSnack({ message: "Fehler beim Laden!", severity: "error" });
     }
-  };
+  }, [diagramKuehlschrankId]);
 
-  const fetchPreisliste = async () => {
+  const fetchPreisliste = useCallback(async () => {
     try {
       const res = await api.get<ProduktPreisliste[]>("/kiosk/preisliste");
       setProduktePreisliste(res.data);
     } catch { /* ignore */ }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchKuehlschraenke();
+    fetchPreisliste();
+  }, [fetchKuehlschraenke, fetchPreisliste]);
 
   // Kühlschrank anlegen
   const handleAddKuehlschrank = async () => {
@@ -125,6 +132,7 @@ const Kuehlschraenke = () => {
     setSelectedProdukt(p);
     setProduktBestand(p.bestand);
     setProduktDialogOpen(true);
+    setDeleteProduktConfirm(false);
   };
 
   // Produktbestand speichern
@@ -146,11 +154,11 @@ const Kuehlschraenke = () => {
     }
   };
 
-  // Produkt aus Kühlschrank löschen
+  // Produkt aus Kühlschrank löschen (nutze produkt_id!)
   const handleDeleteProdukt = async () => {
     if (!selectedKuehlschrank || !selectedProdukt) return;
     try {
-      await api.delete(`/kiosk/kuehlschraenke/${selectedKuehlschrank.id}/inhalt/${selectedProdukt.id}`);
+      await api.delete(`/kiosk/kuehlschraenke/${selectedKuehlschrank.id}/inhalt/${selectedProdukt.produkt_id}`);
       setSnack({ message: "Produkt entfernt!", severity: "success" });
       setProduktDialogOpen(false);
       setSelectedKuehlschrank(null);
@@ -189,15 +197,21 @@ const Kuehlschraenke = () => {
     }
   };
 
-  // --- Balkendiagramm: Einzelbestand oder Gesamtbestand ---
+  // Diagramm-Daten: Nur Produkte des selektierten Kühlschranks anzeigen
   const einzelLabels: string[] = [];
   const einzelData: number[] = [];
-  kuehlschraenke.forEach(k => {
-    k.inhalt.forEach(p => {
-      einzelLabels.push(`${p.name} (${k.name})`);
+  const selectedDiagramKuehlschrank = kuehlschraenke.find(k => String(k.id) === diagramKuehlschrankId);
+  if (diagrammModus === "einzeln" && selectedDiagramKuehlschrank) {
+    selectedDiagramKuehlschrank.inhalt.forEach(p => {
+      einzelLabels.push(p.name);
       einzelData.push(p.bestand);
     });
-  });
+  } else if (diagrammModus === "einzeln" && kuehlschraenke.length > 0) {
+    kuehlschraenke[0].inhalt.forEach(p => {
+      einzelLabels.push(p.name);
+      einzelData.push(p.bestand);
+    });
+  }
 
   // Gesamtbestand je Produkt
   const gesamtMap = new Map<string, number>();
@@ -217,7 +231,7 @@ const Kuehlschraenke = () => {
       <Button variant="contained" startIcon={<AddIcon />} onClick={() => setEditOpen(true)} sx={{ mb: 2 }}>
         Kühlschrank hinzufügen
       </Button>
-      {/* Cards ohne Grid */}
+      {/* Cards ohne Grid, mit flex */}
       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
         {kuehlschraenke.map(k => (
           <Card
@@ -267,7 +281,16 @@ const Kuehlschraenke = () => {
                         <IconButton size="small" onClick={() => openProduktDialog(k, p)}>
                           <EditIcon fontSize="small" />
                         </IconButton>
-                        <IconButton size="small" color="error" onClick={() => { setSelectedKuehlschrank(k); setSelectedProdukt(p); setProduktDialogOpen(true); }}>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => {
+                            setSelectedKuehlschrank(k);
+                            setSelectedProdukt(p);
+                            setProduktDialogOpen(true);
+                            setDeleteProduktConfirm(true);
+                          }}
+                        >
                           <DeleteIcon fontSize="small" />
                         </IconButton>
                       </Box>
@@ -310,6 +333,23 @@ const Kuehlschraenke = () => {
             ? "Bestand je Kühlschrank & Produkt"
             : "Gesamtbestand je Produkt"}
         </Typography>
+        {diagrammModus === "einzeln" && (
+          <FormControl sx={{ mb: 2, minWidth: 220 }}>
+            <InputLabel id="diagram-kuehlschrank-label">Kühlschrank wählen</InputLabel>
+            <Select
+              labelId="diagram-kuehlschrank-label"
+              label="Kühlschrank wählen"
+              value={diagramKuehlschrankId}
+              onChange={(e: SelectChangeEvent) => setDiagramKuehlschrankId(e.target.value)}
+            >
+              {kuehlschraenke.map(k => (
+                <MenuItem key={k.id} value={String(k.id)}>
+                  {k.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )}
         <Box sx={{
           maxWidth: "100vw",
           overflowX: "auto",
@@ -381,22 +421,41 @@ const Kuehlschraenke = () => {
           Produkt bearbeiten – {selectedKuehlschrank?.name}
         </DialogTitle>
         <DialogContent>
-          <Typography sx={{ mb: 2 }}>
-            Produkt: <b>{selectedProdukt?.name}</b>
-          </Typography>
-          <TextField
-            label="Bestand"
-            type="number"
-            fullWidth
-            value={produktBestand}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setProduktBestand(Number(e.target.value))}
-            sx={{ mb: 2 }}
-          />
+          {deleteProduktConfirm ? (
+            <Typography sx={{ mb: 2 }}>
+              Produkt <b>{selectedProdukt?.name}</b> wirklich entfernen?
+            </Typography>
+          ) : (
+            <>
+              <Typography sx={{ mb: 2 }}>
+                Produkt: <b>{selectedProdukt?.name}</b>
+              </Typography>
+              <TextField
+                label="Bestand"
+                type="number"
+                fullWidth
+                value={produktBestand}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setProduktBestand(Number(e.target.value))}
+                sx={{ mb: 2 }}
+              />
+            </>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button color="error" onClick={handleDeleteProdukt}>Produkt entfernen</Button>
-          <Button onClick={() => setProduktDialogOpen(false)}>Abbrechen</Button>
-          <Button variant="contained" onClick={handleSaveProdukt}>Speichern</Button>
+          {deleteProduktConfirm ? (
+            <>
+              <Button onClick={() => setProduktDialogOpen(false)}>Abbrechen</Button>
+              <Button color="error" variant="contained" onClick={handleDeleteProdukt}>
+                Produkt entfernen
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button color="error" onClick={() => setDeleteProduktConfirm(true)}>Produkt entfernen</Button>
+              <Button onClick={() => setProduktDialogOpen(false)}>Abbrechen</Button>
+              <Button variant="contained" onClick={handleSaveProdukt}>Speichern</Button>
+            </>
+          )}
         </DialogActions>
       </Dialog>
 
