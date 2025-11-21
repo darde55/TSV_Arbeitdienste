@@ -69,7 +69,12 @@ const TerminAdmin: React.FC = () => {
 
   const fetchTermine = async () => {
     const res = await api.get<Termin[]>("/termine");
-    setTermine(res.data);
+    // Nur Termine in der Zukunft anzeigen!
+    const heute = new Date();
+    heute.setHours(0,0,0,0);
+    setTermine(
+      res.data.filter(t => new Date(t.datum).setHours(0,0,0,0) >= heute.getTime())
+    );
   };
   const fetchUsers = async () => {
     const res = await api.get<User[]>("/users");
@@ -98,7 +103,15 @@ const TerminAdmin: React.FC = () => {
     setSelectedUser("");
   };
 
-  // Bearbeiten Dialog schließen
+  // Neu-Dialog öffnen (+ Button)
+  const handleAddTerminOpen = () => {
+    setSelectedTermin(null);
+    setEditForm(initialTermin);
+    setEditOpen(true);
+    setSelectedUser("");
+  };
+
+  // Bearbeiten/Neu-Dialog schließen
   const handleEditClose = () => {
     setEditOpen(false);
     setSelectedTermin(null);
@@ -106,11 +119,17 @@ const TerminAdmin: React.FC = () => {
     setSelectedUser("");
   };
 
-  // Termin speichern
+  // Termin speichern (neu oder bearbeiten)
   const handleEditSave = async () => {
-    if (!selectedTermin) return;
-    await api.put(`/termine/${selectedTermin.id}`, editForm);
-    setSnack("Termin gespeichert!");
+    if (selectedTermin) {
+      // Bestehenden Termin bearbeiten
+      await api.put(`/termine/${selectedTermin.id}`, editForm);
+      setSnack("Termin gespeichert!");
+    } else {
+      // Neuen Termin anlegen!
+      await api.post("/termine", editForm);
+      setSnack("Neuer Termin angelegt!");
+    }
     setEditOpen(false);
     fetchTermine();
   };
@@ -165,6 +184,16 @@ const TerminAdmin: React.FC = () => {
   return (
     <Paper sx={{ p: 2, mt: 2 }}>
       <Typography variant="h6" mb={2}>Termine Verwaltung</Typography>
+      {/* Neuen Termin anlegen Button */}
+      <Button
+        variant="contained"
+        color="success"
+        sx={{ mb: 2 }}
+        startIcon={<AddCircleIcon />}
+        onClick={handleAddTerminOpen}
+      >
+        Neuen Termin anlegen
+      </Button>
       <TableContainer>
         <Table size="small">
           <TableHead>
@@ -217,9 +246,9 @@ const TerminAdmin: React.FC = () => {
         </Table>
       </TableContainer>
 
-      {/* Edit Dialog */}
+      {/* Edit/Neu Dialog */}
       <Dialog open={editOpen} onClose={handleEditClose} maxWidth="md" fullWidth>
-        <DialogTitle>Termin bearbeiten</DialogTitle>
+        <DialogTitle>{selectedTermin ? "Termin bearbeiten" : "Neuen Termin anlegen"}</DialogTitle>
         <DialogContent>
           <Box display="flex" flexWrap="wrap" gap={2} mt={1}>
             <TextField label="Titel" name="titel" value={editForm.titel} onChange={handleFormChange} size="small" />
@@ -261,43 +290,47 @@ const TerminAdmin: React.FC = () => {
               label="Zufallsauswahl aktivieren"
             />
           </Box>
-          {/* Teilnehmer-Verwaltung */}
-          <Box mt={4}>
-            <Typography variant="subtitle2" mb={1}>Teilnehmer:</Typography>
-            <Box display="flex" gap={2} alignItems="center">
-              <FormControl size="small" sx={{ minWidth: 140 }}>
-                <InputLabel id="add-user-label">User hinzufügen</InputLabel>
-                <Select
-                  labelId="add-user-label"
-                  value={selectedUser}
-                  label="User hinzufügen"
-                  onChange={(e: SelectChangeEvent) => setSelectedUser(e.target.value)}
-                >
-                  {users.map(u => (
-                    <MenuItem key={u.username} value={u.username}>{u.username}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <Button variant="contained" size="small" startIcon={<AddCircleIcon />} onClick={handleAddUser} disabled={!selectedUser}>
-                Hinzufügen
-              </Button>
+          {/* Teilnehmer-Verwaltung nur beim Bearbeiten */}
+          {selectedTermin && (
+            <Box mt={4}>
+              <Typography variant="subtitle2" mb={1}>Teilnehmer:</Typography>
+              <Box display="flex" gap={2} alignItems="center">
+                <FormControl size="small" sx={{ minWidth: 140 }}>
+                  <InputLabel id="add-user-label">User hinzufügen</InputLabel>
+                  <Select
+                    labelId="add-user-label"
+                    value={selectedUser}
+                    label="User hinzufügen"
+                    onChange={(e: SelectChangeEvent) => setSelectedUser(e.target.value)}
+                  >
+                    {users.map(u => (
+                      <MenuItem key={u.username} value={u.username}>{u.username}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <Button variant="contained" size="small" startIcon={<AddCircleIcon />} onClick={handleAddUser} disabled={!selectedUser}>
+                  Hinzufügen
+                </Button>
+              </Box>
+              <Box mt={2} sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                {selectedTermin?.teilnehmer?.map(tn => (
+                  <Box key={tn.username} sx={{ display: "inline-flex", alignItems: "center", mr: 2 }}>
+                    <span>{tn.username}</span>
+                    <IconButton size="small" color="error" sx={{ ml: 0.5 }}
+                      onClick={() => handleRemoveUser(tn.username)}>
+                      <RemoveCircleIcon />
+                    </IconButton>
+                  </Box>
+                ))}
+              </Box>
             </Box>
-            <Box mt={2} sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-              {selectedTermin?.teilnehmer?.map(tn => (
-                <Box key={tn.username} sx={{ display: "inline-flex", alignItems: "center", mr: 2 }}>
-                  <span>{tn.username}</span>
-                  <IconButton size="small" color="error" sx={{ ml: 0.5 }}
-                    onClick={() => handleRemoveUser(tn.username)}>
-                    <RemoveCircleIcon />
-                  </IconButton>
-                </Box>
-              ))}
-            </Box>
-          </Box>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleEditClose} color="error">Abbrechen</Button>
-          <Button onClick={handleEditSave} variant="contained" color="primary">Speichern</Button>
+          <Button onClick={handleEditSave} variant="contained" color="primary">
+            {selectedTermin ? "Speichern" : "Anlegen"}
+          </Button>
         </DialogActions>
       </Dialog>
       <Snackbar

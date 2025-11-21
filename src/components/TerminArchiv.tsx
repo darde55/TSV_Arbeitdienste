@@ -49,7 +49,14 @@ const TerminArchiv: React.FC = () => {
   const fetchTermine = async () => {
     try {
       const res = await api.get<Termin[]>("/termine");
-      setTermine(res.data);
+      // Nur Termine mit Datum vor heute ins Archiv!
+      const heute = new Date();
+      heute.setHours(0,0,0,0);
+      setTermine(
+        res.data.filter(
+          t => new Date(t.datum).setHours(0,0,0,0) < heute.getTime()
+        )
+      );
     } catch {
       setError("Fehler beim Laden der Termine.");
     }
