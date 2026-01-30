@@ -48,7 +48,7 @@ const Navbar: React.FC = () => {
                   <MenuItem onClick={() => go("/")}>Termine</MenuItem>
                   <MenuItem onClick={() => go("/profile")}>Profil</MenuItem>
                   {(user.role === "admin" || user.role === "organisator") && (
-                    <MenuItem onClick={() => go("/admin")}>{user.role === "admin" ? "Admin" : "Termine"}</MenuItem>
+                    <MenuItem onClick={() => go("/admin")}>{user.role === "admin" ? "Admin" : "Terminverwaltung"}</MenuItem>
                   )}
                   {user.role === "admin" && (
                     <MenuItem onClick={() => go("/kiosk")}>Kiosk</MenuItem>
@@ -79,7 +79,7 @@ const Navbar: React.FC = () => {
                 </Button>
                 {(user.role === "admin" || user.role === "organisator") && (
                   <Button color="inherit" onClick={() => go("/admin")}>
-                    {user.role === "admin" ? "Admin" : "Termine"}
+                    {user.role === "admin" ? "Admin" : "Terminverwaltung"}
                   </Button>
                 )}
                 {user.role === "admin" && (
