@@ -139,7 +139,13 @@ const TerminAdmin: React.FC = () => {
     if (!selectedTermin || !selectedUser) return;
     await api.post(`/termine/${selectedTermin.id}/teilnehmen`, { username: selectedUser });
     setSnack(`User ${selectedUser} hinzugefügt`);
-    fetchTermine();
+    await fetchTermine();
+    // Aktualisiere selectedTermin mit neuen Daten
+    const updatedTermine = await api.get<Termin[]>("/termine");
+    const updatedTermin = updatedTermine.data.find(t => t.id === selectedTermin.id);
+    if (updatedTermin) {
+      setSelectedTermin(updatedTermin);
+    }
     setSelectedUser("");
   };
 
@@ -148,7 +154,13 @@ const TerminAdmin: React.FC = () => {
     if (!selectedTermin) return;
     await api.delete(`/termine/${selectedTermin.id}/teilnehmer/${username}`);
     setSnack(`User ${username} entfernt`);
-    fetchTermine();
+    await fetchTermine();
+    // Aktualisiere selectedTermin mit neuen Daten
+    const updatedTermine = await api.get<Termin[]>("/termine");
+    const updatedTermin = updatedTermine.data.find(t => t.id === selectedTermin.id);
+    if (updatedTermin) {
+      setSelectedTermin(updatedTermin);
+    }
   };
 
   // Termin löschen
