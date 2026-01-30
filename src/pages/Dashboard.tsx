@@ -2,7 +2,8 @@ import React, { useEffect, useState, useMemo } from "react";
 import {
   Paper, Typography, Accordion, AccordionSummary, AccordionDetails,
   Table, TableBody, TableCell, TableHead, TableRow, Box, Button,
-  Avatar, TableContainer, Snackbar, Alert, Chip
+  Avatar, TableContainer, Snackbar, Alert, Chip, Dialog, DialogTitle,
+  DialogContent, DialogContentText, DialogActions
 } from "@mui/material";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
@@ -60,6 +61,7 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [snackOpen, setSnackOpen] = useState(false);
   const [tokenError, setTokenError] = useState<string>("");
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
 
   // Accordion-State für Kategorie-Abschnitte
   const [openKategorie, setOpenKategorie] = useState<Record<TerminKategorie, boolean>>({
@@ -242,7 +244,7 @@ const Dashboard: React.FC = () => {
     try {
       await api.post(`/termine/${terminId}/teilnehmen`);
       await fetchAllData();
-      setSnackOpen(true);
+      setEmailDialogOpen(true);
     } catch (err) {
       if (axios.isAxiosError(err)) {
         setTokenError(
@@ -484,6 +486,26 @@ const Dashboard: React.FC = () => {
           </Table>
         </TableContainer>
       </Paper>
+
+      {/* E-Mail Bestätigungs-Dialog */}
+      <Dialog
+        open={emailDialogOpen}
+        onClose={() => setEmailDialogOpen(false)}
+      >
+        <DialogTitle>Anmeldung erfolgreich!</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Eine E-Mail mit der Terminbestätigung und Kalender-Datei wurde an deine E-Mail-Adresse versendet.
+            <br /><br />
+            <strong>Bitte überprüfe auch deinen Spam-Ordner!</strong>
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEmailDialogOpen(false)} variant="contained" color="primary">
+            OK
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
