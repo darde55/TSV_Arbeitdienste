@@ -262,8 +262,8 @@ const TerminAdmin: React.FC = () => {
               </Select>
             </FormControl>
             <TextField label="Datum" name="datum" type="date" value={editForm.datum} onChange={handleFormChange} size="small" InputLabelProps={{ shrink: true }} />
-            <TextField label="Beginn" name="beginn" value={editForm.beginn} onChange={handleFormChange} size="small" />
-            <TextField label="Ende" name="ende" value={editForm.ende} onChange={handleFormChange} size="small" />
+            <TextField label="Beginn" name="beginn" type="time" value={editForm.beginn} onChange={handleFormChange} size="small" InputLabelProps={{ shrink: true }} />
+            <TextField label="Ende" name="ende" type="time" value={editForm.ende} onChange={handleFormChange} size="small" InputLabelProps={{ shrink: true }} />
             <TextField label="Anzahl" name="anzahl" type="number" value={editForm.anzahl ?? ""} onChange={handleFormChange} size="small" />
             <TextField label="Stichtag" name="stichtag" type="date" value={editForm.stichtag} onChange={handleFormChange} size="small" InputLabelProps={{ shrink: true }} />
             <TextField label="Ansprechpartner Name" name="ansprechpartner_name" value={editForm.ansprechpartner_name} onChange={handleFormChange} size="small" />
