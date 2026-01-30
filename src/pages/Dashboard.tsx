@@ -62,6 +62,7 @@ const Dashboard: React.FC = () => {
   const [snackOpen, setSnackOpen] = useState(false);
   const [tokenError, setTokenError] = useState<string>("");
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [selectedEventForAnmeldung, setSelectedEventForAnmeldung] = useState<Termin | null>(null);
 
   // Accordion-State für Kategorie-Abschnitte
   const [openKategorie, setOpenKategorie] = useState<Record<TerminKategorie, boolean>>({
@@ -145,12 +146,23 @@ const Dashboard: React.FC = () => {
   // Eigene Termin-IDs für Markierungen
   const userTerminIds = useMemo(() => new Set(userTermine.map(t => t.id)), [userTermine]);
 
+  // Kategorie-Farben
+  const getCategoryColor = (kategorie?: TerminKategorie) => {
+    switch (kategorie) {
+      case "Schiedsrichter": return "#ff6b6b"; // Rot
+      case "Grillen": return "#ffa500"; // Orange
+      case "Sonstiges": return "#1976d2"; // Blau
+      default: return "#1976d2";
+    }
+  };
+
   // Event-Farben im Kalender
   const eventPropGetter = (event: CalendarEvent) => {
     const isUserAngemeldet = userTerminIds.has(event.resource.id);
     const isPast = event.end ? event.end < new Date() : false;
+    const baseColor = getCategoryColor(event.resource.kategorie);
     const style: React.CSSProperties = {
-      backgroundColor: "#1976d2",
+      backgroundColor: baseColor,
       color: "white",
       borderRadius: "8px",
       border: "none",
@@ -158,7 +170,7 @@ const Dashboard: React.FC = () => {
       fontWeight: 600,
     };
     if (isUserAngemeldet) {
-      style.backgroundColor = "#2e7d32";
+      style.backgroundColor = "#2e7d32"; // Grün für angemeldete Termine
     }
     if (isPast) {
       style.backgroundColor = "#b0b0b0";
@@ -260,6 +272,23 @@ const Dashboard: React.FC = () => {
     setLoading(false);
   };
 
+  const handleEventClick = (event: CalendarEvent) => {
+    const termin = event.resource;
+    const isPast = event.end ? event.end < new Date() : false;
+    const isAngemeldet = userTerminIds.has(termin.id);
+    
+    if (!isPast && !isAngemeldet) {
+      setSelectedEventForAnmeldung(termin);
+    }
+  };
+
+  const handleAnmeldungConfirm = async () => {
+    if (selectedEventForAnmeldung) {
+      await handleAnmelden(selectedEventForAnmeldung.id);
+      setSelectedEventForAnmeldung(null);
+    }
+  };
+
   return (
     <Box sx={{ maxWidth: 1000, mx: "auto", mt: 3, mb: 4 }}>
       <Snackbar
@@ -281,6 +310,12 @@ const Dashboard: React.FC = () => {
 
       <Paper sx={{ p: 2, mb: 4 }}>
         <Typography variant="h5" mb={2}>Terminkalender</Typography>
+        <Box sx={{ mb: 2, display: "flex", gap: 2, flexWrap: "wrap" }}>
+          <Chip label="Schiedsrichter" sx={{ backgroundColor: "#ff6b6b", color: "white" }} size="small" />
+          <Chip label="Grillen" sx={{ backgroundColor: "#ffa500", color: "white" }} size="small" />
+          <Chip label="Sonstiges" sx={{ backgroundColor: "#1976d2", color: "white" }} size="small" />
+          <Chip label="Angemeldet" sx={{ backgroundColor: "#2e7d32", color: "white" }} size="small" />
+        </Box>
         <Calendar
           localizer={localizer}
           events={calendarEvents}
@@ -289,6 +324,7 @@ const Dashboard: React.FC = () => {
           style={{ height: 400 }}
           culture="de"
           eventPropGetter={eventPropGetter}
+          onSelectEvent={handleEventClick}
         />
       </Paper>
 
@@ -486,6 +522,27 @@ const Dashboard: React.FC = () => {
           </Table>
         </TableContainer>
       </Paper>
+
+      {/* Anmelde-Bestätigungs-Dialog */}
+      <Dialog
+        open={!!selectedEventForAnmeldung}
+        onClose={() => setSelectedEventForAnmeldung(null)}
+      >
+        <DialogTitle>Für Termin anmelden?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Möchtest du dich für den Termin <strong>{selectedEventForAnmeldung?.titel}</strong> am <strong>{formatDate(selectedEventForAnmeldung?.datum)}</strong> anmelden?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSelectedEventForAnmeldung(null)} color="error">
+            Abbrechen
+          </Button>
+          <Button onClick={handleAnmeldungConfirm} variant="contained" color="primary" disabled={loading}>
+            Ja, anmelden
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* E-Mail Bestätigungs-Dialog */}
       <Dialog
