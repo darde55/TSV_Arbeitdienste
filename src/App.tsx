@@ -35,7 +35,7 @@ const App: React.FC = () => {
         <Route
           path="/admin"
           element={
-            user && user.role === "admin" ? <Admin /> : <Navigate to="/" />
+            user && (user.role === "admin" || user.role === "organisator") ? <Admin /> : <Navigate to="/" />
           }
         />
         {/* --- Kiosk Route korrekt ergänzt --- */}

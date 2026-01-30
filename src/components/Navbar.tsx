@@ -47,11 +47,11 @@ const Navbar: React.FC = () => {
                 <>
                   <MenuItem onClick={() => go("/")}>Termine</MenuItem>
                   <MenuItem onClick={() => go("/profile")}>Profil</MenuItem>
+                  {(user.role === "admin" || user.role === "organisator") && (
+                    <MenuItem onClick={() => go("/admin")}>{user.role === "admin" ? "Admin" : "Termine"}</MenuItem>
+                  )}
                   {user.role === "admin" && (
-                    <>
-                      <MenuItem onClick={() => go("/admin")}>Admin</MenuItem>
-                      <MenuItem onClick={() => go("/kiosk")}>Kiosk</MenuItem>
-                    </>
+                    <MenuItem onClick={() => go("/kiosk")}>Kiosk</MenuItem>
                   )}
                   <MenuItem
                     onClick={() => {
@@ -77,15 +77,15 @@ const Navbar: React.FC = () => {
                 <Button color="inherit" onClick={() => go("/profile")}>
                   Profil
                 </Button>
+                {(user.role === "admin" || user.role === "organisator") && (
+                  <Button color="inherit" onClick={() => go("/admin")}>
+                    {user.role === "admin" ? "Admin" : "Termine"}
+                  </Button>
+                )}
                 {user.role === "admin" && (
-                  <>
-                    <Button color="inherit" onClick={() => go("/admin")}>
-                      Admin
-                    </Button>
-                    <Button color="inherit" onClick={() => go("/kiosk")}>
-                      Kiosk
-                    </Button>
-                  </>
+                  <Button color="inherit" onClick={() => go("/kiosk")}>
+                    Kiosk
+                  </Button>
                 )}
                 <Button color="inherit" onClick={() => { logout(); go("/login"); }}>
                   Logout

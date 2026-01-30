@@ -4,7 +4,7 @@ import api from "../api/api";
 interface UserType {
   username: string;
   email: string;
-  role: "admin" | "user";
+  role: "admin" | "organisator" | "user";
   score: number;
   token: string; // lokal, nicht vom API!
 }

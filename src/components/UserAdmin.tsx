@@ -38,6 +38,7 @@ const initialUserState: Omit<User, "score"> = {
 
 const ROLE_OPTIONS = [
   { value: "user", label: "User" },
+  { value: "organisator", label: "Organisator" },
   { value: "admin", label: "Admin" },
 ];
 

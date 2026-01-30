@@ -3,16 +3,19 @@ import { Container, Typography, Paper, Box, Divider, Tabs, Tab } from "@mui/mate
 import UserAdmin from "../components/UserAdmin";
 import TermineAdmin from "../components/TermineAdmin";
 import TerminArchiv from "../components/TerminArchiv";
+import { useUserStore } from "../store/userStore";
 
 const Admin: React.FC = () => {
-  const [tabIndex, setTabIndex] = useState(0);
+  const { user } = useUserStore();
+  const isAdmin = user?.role === "admin";
+  const [tabIndex, setTabIndex] = useState(isAdmin ? 0 : 0);
 
   return (
     <Container sx={{ mt: 4 }}>
       <Paper sx={{ p: 4 }}>
-        <Typography variant="h5" mb={2}>Admin-Bereich</Typography>
+        <Typography variant="h5" mb={2}>{isAdmin ? "Admin-Bereich" : "Terminverwaltung"}</Typography>
         <Typography mb={2}>
-          Hier kannst du Termine und Benutzer verwalten!
+          {isAdmin ? "Hier kannst du Termine und Benutzer verwalten!" : "Hier kannst du Termine verwalten!"}
         </Typography>
         <Tabs
           value={tabIndex}
@@ -22,15 +25,17 @@ const Admin: React.FC = () => {
           textColor="primary"
           variant="fullWidth"
         >
-          <Tab label="Benutzer" />
+          {isAdmin && <Tab label="Benutzer" />}
           <Tab label="Termine" />
           <Tab label="Archiv" />
         </Tabs>
         <Divider sx={{ mb: 3 }} />
         <Box>
-          {tabIndex === 0 && <UserAdmin />}
-          {tabIndex === 1 && <TermineAdmin />}
-          {tabIndex === 2 && <TerminArchiv />}
+          {isAdmin && tabIndex === 0 && <UserAdmin />}
+          {isAdmin && tabIndex === 1 && <TermineAdmin />}
+          {isAdmin && tabIndex === 2 && <TerminArchiv />}
+          {!isAdmin && tabIndex === 0 && <TermineAdmin />}
+          {!isAdmin && tabIndex === 1 && <TerminArchiv />}
         </Box>
       </Paper>
     </Container>
