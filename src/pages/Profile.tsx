@@ -114,7 +114,13 @@ const Profile: React.FC = () => {
         <Typography>
           <b>Rolle:</b>{" "}
           <Chip
-            label={profile.role === "admin" ? "Admin" : "Mitglied"}
+            label={
+              profile.role === "admin" 
+                ? "Admin" 
+                : profile.role === "organisator" 
+                  ? "Organisator" 
+                  : "Mitglied"
+            }
             color={profile.role === "admin" ? "secondary" : "primary"}
             size="small"
           />
