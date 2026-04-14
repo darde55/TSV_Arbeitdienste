@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Paper, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   IconButton, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Select,
@@ -10,6 +10,7 @@ import RemoveCircleIcon from "@mui/icons-material/RemoveCircle";
 import AddCircleIcon from "@mui/icons-material/AddCircle";
 import type { SelectChangeEvent } from "@mui/material/Select";
 import api from "../api/api";
+import { useUserStore } from "../store/userStore";
 
 type TerminKategorie = "Schiedsrichter" | "Grillen" | "Sonstiges";
 const kategorien: TerminKategorie[] = ["Schiedsrichter", "Grillen", "Sonstiges"];
@@ -35,6 +36,8 @@ type Termin = {
 type User = {
   username: string;
   email: string;
+  role?: string;
+  score?: number;
 };
 
 const initialTermin: Omit<Termin, "id" | "teilnehmer"> = {
@@ -54,6 +57,8 @@ const initialTermin: Omit<Termin, "id" | "teilnehmer"> = {
 };
 
 const TerminAdmin: React.FC = () => {
+  const { user } = useUserStore();
+  const isAdmin = user?.role === "admin";
   const [termine, setTermine] = useState<Termin[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [selectedTermin, setSelectedTermin] = useState<Termin | null>(null);
@@ -61,6 +66,15 @@ const TerminAdmin: React.FC = () => {
   const [editOpen, setEditOpen] = useState(false);
   const [snack, setSnack] = useState<string>("");
   const [selectedUser, setSelectedUser] = useState<string>("");
+  const [zufallOpen, setZufallOpen] = useState(false);
+  const [zufallTermin, setZufallTermin] = useState<Termin | null>(null);
+  const [zufallSelected, setZufallSelected] = useState<string[]>([]);
+  const [zufallLoading, setZufallLoading] = useState(false);
+
+  const eligibleUsers = useMemo(
+    () => users.filter(u => u.role !== "admin"),
+    [users]
+  );
 
   useEffect(() => {
     fetchTermine();
@@ -79,6 +93,64 @@ const TerminAdmin: React.FC = () => {
   const fetchUsers = async () => {
     const res = await api.get<User[]>("/users");
     setUsers(res.data);
+  };
+
+  const getAutoSelected = (termin: Termin, list: User[]) => {
+    const sorted = [...list].sort((a, b) => {
+      const scoreA = a.score ?? 0;
+      const scoreB = b.score ?? 0;
+      if (scoreA !== scoreB) return scoreA - scoreB;
+      return a.username.localeCompare(b.username);
+    });
+    if (termin.anzahl && termin.anzahl > 0) {
+      return sorted.slice(0, termin.anzahl).map(u => u.username);
+    }
+    if (sorted.length === 0) return [];
+    const minScore = sorted[0].score ?? 0;
+    return sorted.filter(u => (u.score ?? 0) === minScore).map(u => u.username);
+  };
+
+  const handleZufallOpen = async (termin: Termin) => {
+    setZufallTermin(termin);
+    setZufallOpen(true);
+    if (!isAdmin) return;
+    setZufallLoading(true);
+    try {
+      const res = await api.get<{ usernames: string[] }>(`/termine/${termin.id}/zufallspool`);
+      if (res.data.usernames && res.data.usernames.length > 0) {
+        setZufallSelected(res.data.usernames);
+      } else {
+        setZufallSelected(getAutoSelected(termin, eligibleUsers));
+      }
+    } catch {
+      setZufallSelected(getAutoSelected(termin, eligibleUsers));
+    } finally {
+      setZufallLoading(false);
+    }
+  };
+
+  const handleZufallClose = () => {
+    setZufallOpen(false);
+    setZufallTermin(null);
+    setZufallSelected([]);
+  };
+
+  const toggleZufallUser = (username: string) => {
+    setZufallSelected(prev =>
+      prev.includes(username) ? prev.filter(u => u !== username) : [...prev, username]
+    );
+  };
+
+  const applyAutoSelection = () => {
+    if (!zufallTermin) return;
+    setZufallSelected(getAutoSelected(zufallTermin, eligibleUsers));
+  };
+
+  const handleZufallSave = async () => {
+    if (!zufallTermin) return;
+    await api.put(`/termine/${zufallTermin.id}/zufallspool`, { usernames: zufallSelected });
+    setSnack("Zufallsauswahl-Pool gespeichert!");
+    handleZufallClose();
   };
 
   // Bearbeiten Dialog öffnen
@@ -217,6 +289,7 @@ const TerminAdmin: React.FC = () => {
               <TableCell>Kategorie</TableCell>
               <TableCell>Score</TableCell>
               <TableCell>Teilnehmer</TableCell>
+              {isAdmin && <TableCell>Zufallsauswahl</TableCell>}
               <TableCell>Bearbeiten</TableCell>
               <TableCell>Löschen</TableCell>
             </TableRow>
@@ -242,6 +315,17 @@ const TerminAdmin: React.FC = () => {
                     }
                   </Box>
                 </TableCell>
+                {isAdmin && (
+                  <TableCell>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => handleZufallOpen(t)}
+                    >
+                      Zufallsauswahl
+                    </Button>
+                  </TableCell>
+                )}
                 <TableCell>
                   <IconButton color="primary" onClick={() => handleEditOpen(t)}>
                     <EditIcon />
@@ -342,6 +426,59 @@ const TerminAdmin: React.FC = () => {
           <Button onClick={handleEditClose} color="error">Abbrechen</Button>
           <Button onClick={handleEditSave} variant="contained" color="primary">
             {selectedTermin ? "Speichern" : "Anlegen"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Zufallsauswahl Dialog (Admin) */}
+      <Dialog open={zufallOpen} onClose={handleZufallClose} maxWidth="sm" fullWidth>
+        <DialogTitle>Zufallsauswahl</DialogTitle>
+        <DialogContent>
+          {zufallTermin && (
+            <Box display="flex" flexDirection="column" gap={2} mt={1}>
+              <Typography variant="subtitle2">
+                Termin: {zufallTermin.titel}
+              </Typography>
+              <Box display="flex" gap={1} alignItems="center">
+                <Button variant="outlined" size="small" onClick={applyAutoSelection} disabled={zufallLoading}>
+                  Auto-Auswahl nach Score
+                </Button>
+                <Typography variant="body2" color="text.secondary">
+                  {zufallSelected.length} ausgewählt
+                </Typography>
+              </Box>
+              <Box sx={{ maxHeight: 320, overflow: "auto", border: "1px solid #eee", borderRadius: 1, p: 1 }}>
+                {eligibleUsers.length === 0 && (
+                  <Typography variant="body2" color="text.secondary">Keine verfügbaren User</Typography>
+                )}
+                {eligibleUsers
+                  .slice()
+                  .sort((a, b) => {
+                    const scoreA = a.score ?? 0;
+                    const scoreB = b.score ?? 0;
+                    if (scoreA !== scoreB) return scoreA - scoreB;
+                    return a.username.localeCompare(b.username);
+                  })
+                  .map(u => (
+                    <FormControlLabel
+                      key={u.username}
+                      control={
+                        <Checkbox
+                          checked={zufallSelected.includes(u.username)}
+                          onChange={() => toggleZufallUser(u.username)}
+                        />
+                      }
+                      label={`${u.username} (Score: ${u.score ?? 0})`}
+                    />
+                  ))}
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleZufallClose} color="error">Abbrechen</Button>
+          <Button onClick={handleZufallSave} variant="contained" color="primary" disabled={zufallLoading}>
+            Speichern
           </Button>
         </DialogActions>
       </Dialog>
