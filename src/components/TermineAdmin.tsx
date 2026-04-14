@@ -70,6 +70,7 @@ const TerminAdmin: React.FC = () => {
   const [zufallTermin, setZufallTermin] = useState<Termin | null>(null);
   const [zufallSelected, setZufallSelected] = useState<string[]>([]);
   const [zufallLoading, setZufallLoading] = useState(false);
+  const [zufallResult, setZufallResult] = useState<{ zugeordnet: string[]; uebersprungen: string[] } | null>(null);
 
   const eligibleUsers = useMemo(
     () => users.filter(u => u.role !== "admin"),
@@ -95,16 +96,13 @@ const TerminAdmin: React.FC = () => {
     setUsers(res.data);
   };
 
-  const getAutoSelected = (termin: Termin, list: User[]) => {
+  const getAutoSelected = (list: User[]) => {
     const sorted = [...list].sort((a, b) => {
       const scoreA = a.score ?? 0;
       const scoreB = b.score ?? 0;
       if (scoreA !== scoreB) return scoreA - scoreB;
       return a.username.localeCompare(b.username);
     });
-    if (termin.anzahl && termin.anzahl > 0) {
-      return sorted.slice(0, termin.anzahl).map(u => u.username);
-    }
     if (sorted.length === 0) return [];
     const minScore = sorted[0].score ?? 0;
     return sorted.filter(u => (u.score ?? 0) === minScore).map(u => u.username);
@@ -113,6 +111,7 @@ const TerminAdmin: React.FC = () => {
   const handleZufallOpen = async (termin: Termin) => {
     setZufallTermin(termin);
     setZufallOpen(true);
+    setZufallResult(null);
     if (!isAdmin) return;
     setZufallLoading(true);
     try {
@@ -120,10 +119,10 @@ const TerminAdmin: React.FC = () => {
       if (res.data.usernames && res.data.usernames.length > 0) {
         setZufallSelected(res.data.usernames);
       } else {
-        setZufallSelected(getAutoSelected(termin, eligibleUsers));
+        setZufallSelected(getAutoSelected(eligibleUsers));
       }
     } catch {
-      setZufallSelected(getAutoSelected(termin, eligibleUsers));
+      setZufallSelected(getAutoSelected(eligibleUsers));
     } finally {
       setZufallLoading(false);
     }
@@ -133,6 +132,7 @@ const TerminAdmin: React.FC = () => {
     setZufallOpen(false);
     setZufallTermin(null);
     setZufallSelected([]);
+    setZufallResult(null);
   };
 
   const toggleZufallUser = (username: string) => {
@@ -142,8 +142,7 @@ const TerminAdmin: React.FC = () => {
   };
 
   const applyAutoSelection = () => {
-    if (!zufallTermin) return;
-    setZufallSelected(getAutoSelected(zufallTermin, eligibleUsers));
+    setZufallSelected(getAutoSelected(eligibleUsers));
   };
 
   const handleZufallSave = async () => {
@@ -151,6 +150,28 @@ const TerminAdmin: React.FC = () => {
     await api.put(`/termine/${zufallTermin.id}/zufallspool`, { usernames: zufallSelected });
     setSnack("Zufallsauswahl-Pool gespeichert!");
     handleZufallClose();
+  };
+
+  const handleZufallStart = async () => {
+    if (!zufallTermin) return;
+    if (zufallSelected.length === 0) {
+      setSnack("Bitte mindestens eine Person auswählen.");
+      return;
+    }
+    setZufallLoading(true);
+    try {
+      const res = await api.post<{ zugeordnet: string[]; uebersprungen: string[] }>(`/termine/${zufallTermin.id}/zufallsauswahl/start`, {
+        usernames: zufallSelected
+      });
+      setZufallResult({
+        zugeordnet: res.data.zugeordnet || [],
+        uebersprungen: res.data.uebersprungen || []
+      });
+      setSnack("Zufallsauswahl gestartet!");
+      fetchTermine();
+    } finally {
+      setZufallLoading(false);
+    }
   };
 
   // Bearbeiten Dialog öffnen
@@ -472,11 +493,21 @@ const TerminAdmin: React.FC = () => {
                     />
                   ))}
               </Box>
+              {zufallResult && (
+                <Box sx={{ border: "1px solid #e0e0e0", borderRadius: 1, p: 1 }}>
+                  <Typography variant="subtitle2" mb={1}>Ergebnis</Typography>
+                  <Typography variant="body2"><b>Zugeordnet:</b> {zufallResult.zugeordnet.length > 0 ? zufallResult.zugeordnet.join(", ") : "-"}</Typography>
+                  <Typography variant="body2"><b>Übersprungen:</b> {zufallResult.uebersprungen.length > 0 ? zufallResult.uebersprungen.join(", ") : "-"}</Typography>
+                </Box>
+              )}
             </Box>
           )}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleZufallClose} color="error">Abbrechen</Button>
+          <Button onClick={handleZufallStart} variant="contained" color="secondary" disabled={zufallLoading}>
+            Starten
+          </Button>
           <Button onClick={handleZufallSave} variant="contained" color="primary" disabled={zufallLoading}>
             Speichern
           </Button>
