@@ -70,7 +70,7 @@ const TerminAdmin: React.FC = () => {
   const [zufallTermin, setZufallTermin] = useState<Termin | null>(null);
   const [zufallSelected, setZufallSelected] = useState<string[]>([]);
   const [zufallLoading, setZufallLoading] = useState(false);
-  const [zufallResult, setZufallResult] = useState<{ zugeordnet: string[]; uebersprungen: string[] } | null>(null);
+  const [zufallResult, setZufallResult] = useState<{ zugeordnet: string[]; uebersprungen: string[]; fehlend: number } | null>(null);
 
   const eligibleUsers = useMemo(
     () => users.filter(u => u.role !== "admin"),
@@ -160,12 +160,13 @@ const TerminAdmin: React.FC = () => {
     }
     setZufallLoading(true);
     try {
-      const res = await api.post<{ zugeordnet: string[]; uebersprungen: string[] }>(`/termine/${zufallTermin.id}/zufallsauswahl/start`, {
+      const res = await api.post<{ zugeordnet: string[]; uebersprungen: string[]; fehlend?: number }>(`/termine/${zufallTermin.id}/zufallsauswahl/start`, {
         usernames: zufallSelected
       });
       setZufallResult({
         zugeordnet: res.data.zugeordnet || [],
-        uebersprungen: res.data.uebersprungen || []
+        uebersprungen: res.data.uebersprungen || [],
+        fehlend: res.data.fehlend ?? 0
       });
       setSnack("Zufallsauswahl gestartet!");
       fetchTermine();
@@ -498,6 +499,7 @@ const TerminAdmin: React.FC = () => {
                   <Typography variant="subtitle2" mb={1}>Ergebnis</Typography>
                   <Typography variant="body2"><b>Zugeordnet:</b> {zufallResult.zugeordnet.length > 0 ? zufallResult.zugeordnet.join(", ") : "-"}</Typography>
                   <Typography variant="body2"><b>Übersprungen:</b> {zufallResult.uebersprungen.length > 0 ? zufallResult.uebersprungen.join(", ") : "-"}</Typography>
+                  <Typography variant="body2"><b>Fehlend:</b> {zufallResult.fehlend}</Typography>
                 </Box>
               )}
             </Box>
