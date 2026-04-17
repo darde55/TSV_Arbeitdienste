@@ -25,6 +25,7 @@ const Profile: React.FC = () => {
   const [profile, setProfile] = useState<UserProfileType | null>(null);
   const [error, setError] = useState<string>("");
   const [scoreHistory, setScoreHistory] = useState<ScoreHistoryItem[]>([]);
+  const [scoreHistoryError, setScoreHistoryError] = useState<string>("");
   const [pwDialogOpen, setPwDialogOpen] = useState(false);
   const [oldPw, setOldPw] = useState("");
   const [newPw, setNewPw] = useState("");
@@ -41,12 +42,24 @@ const Profile: React.FC = () => {
         return;
       }
       try {
-        const [res, historyRes] = await Promise.all([
-          api.get<UserProfileType>("/profile", { headers: { Authorization: `Bearer ${token}` } }),
-          api.get<ScoreHistoryItem[]>("/profile/score-history", { headers: { Authorization: `Bearer ${token}` } })
-        ]);
+        const res = await api.get<UserProfileType>("/profile", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         setProfile(res.data);
-        setScoreHistory(historyRes.data);
+        setScoreHistoryError("");
+        try {
+          const historyRes = await api.get<ScoreHistoryItem[]>("/profile/score-history", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          setScoreHistory(historyRes.data);
+        } catch (historyErr) {
+          setScoreHistory([]);
+          if (axios.isAxiosError(historyErr)) {
+            setScoreHistoryError(historyErr.response?.data?.message || "Fehler beim Laden der Score-Historie.");
+          } else {
+            setScoreHistoryError("Unbekannter Fehler beim Laden der Score-Historie.");
+          }
+        }
       } catch (err) {
         if (axios.isAxiosError(err)) {
           setError(
@@ -163,6 +176,11 @@ const Profile: React.FC = () => {
         <Typography variant="h6" mb={2}>
           Score-Transparenz
         </Typography>
+        {scoreHistoryError && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {scoreHistoryError}
+          </Alert>
+        )}
         <TableContainer>
           <Table size="small">
             <TableHead>
