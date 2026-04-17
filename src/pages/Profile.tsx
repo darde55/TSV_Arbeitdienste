@@ -42,15 +42,11 @@ const Profile: React.FC = () => {
         return;
       }
       try {
-        const res = await api.get<UserProfileType>("/profile", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await api.get<UserProfileType>("/profile");
         setProfile(res.data);
         setScoreHistoryError("");
         try {
-          const historyRes = await api.get<ScoreHistoryItem[]>("/profile/score-history", {
-            headers: { Authorization: `Bearer ${token}` },
-          });
+          const historyRes = await api.get<ScoreHistoryItem[]>("/profile/score-history");
           setScoreHistory(historyRes.data);
         } catch (historyErr) {
           setScoreHistory([]);
