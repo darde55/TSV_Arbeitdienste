@@ -32,6 +32,7 @@ type User = {
   email: string;
   role: string;
   score: number;
+  visible?: boolean;
   password?: string;
 };
 
@@ -39,6 +40,7 @@ const initialUserState: Omit<User, "score"> = {
   username: "",
   email: "",
   role: "user",
+  visible: true,
   password: "",
 };
 
@@ -267,6 +269,15 @@ const UserAdmin: React.FC = () => {
             ))}
           </Select>
         </FormControl>
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={form.visible !== false}
+              onChange={(e) => setForm(prev => ({ ...prev, visible: e.target.checked }))}
+            />
+          }
+          label="Sichtbar im Scoreboard"
+        />
         {editUser && (
           <TextField
             label="Score"

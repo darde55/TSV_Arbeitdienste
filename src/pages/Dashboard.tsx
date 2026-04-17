@@ -49,6 +49,7 @@ type User = {
   email: string;
   role: string;
   score: number;
+  visible?: boolean;
 };
 
 type CalendarEvent = RBCEvent & {
@@ -231,7 +232,7 @@ const Dashboard: React.FC = () => {
   );
 
   // Admins aus Score-Tabelle herausfiltern
-  const usersFiltered = users.filter(u => u.role !== "admin");
+  const usersFiltered = users.filter(u => u.role !== "admin" && u.visible !== false);
   const tableHeaderSx = { background: "#f5f5f5", fontWeight: 700 };
 
   const tauschPartnerOptions = usersFiltered
