@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import {
   Paper, Typography, Box, Chip, Alert, Button, Dialog, DialogTitle,
-  DialogContent, DialogActions, TextField, CircularProgress
+  DialogContent, DialogActions, TextField, CircularProgress, Table, TableBody,
+  TableCell, TableContainer, TableHead, TableRow
 } from "@mui/material";
 import api from "../api/api";
 import axios from "axios";
@@ -13,9 +14,17 @@ interface UserProfileType {
   score: number;
 }
 
+interface ScoreHistoryItem {
+  delta: number;
+  reason: string;
+  created_at: string;
+  termin_titel?: string | null;
+}
+
 const Profile: React.FC = () => {
   const [profile, setProfile] = useState<UserProfileType | null>(null);
   const [error, setError] = useState<string>("");
+  const [scoreHistory, setScoreHistory] = useState<ScoreHistoryItem[]>([]);
   const [pwDialogOpen, setPwDialogOpen] = useState(false);
   const [oldPw, setOldPw] = useState("");
   const [newPw, setNewPw] = useState("");
@@ -32,10 +41,12 @@ const Profile: React.FC = () => {
         return;
       }
       try {
-        const res = await api.get<UserProfileType>("/profile", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const [res, historyRes] = await Promise.all([
+          api.get<UserProfileType>("/profile", { headers: { Authorization: `Bearer ${token}` } }),
+          api.get<ScoreHistoryItem[]>("/profile/score-history", { headers: { Authorization: `Bearer ${token}` } })
+        ]);
         setProfile(res.data);
+        setScoreHistory(historyRes.data);
       } catch (err) {
         if (axios.isAxiosError(err)) {
           setError(
@@ -99,8 +110,14 @@ const Profile: React.FC = () => {
 
   if (!profile) return null;
 
+  const formatDateTime = (value: string) => {
+    const date = new Date(value);
+    if (isNaN(date.getTime())) return value;
+    return date.toLocaleString("de-DE");
+  };
+
   return (
-    <Box sx={{ mt: 5, display: "flex", justifyContent: "center" }}>
+    <Box sx={{ mt: 5, display: "flex", justifyContent: "center", gap: 3, flexWrap: "wrap" }}>
       <Paper sx={{ p: 4, maxWidth: 400, width: "100%" }} elevation={2}>
         <Typography variant="h6" mb={2}>
           Mein Profil
@@ -140,6 +157,39 @@ const Profile: React.FC = () => {
         {pwSuccess && (
           <Alert severity="success" sx={{ mt: 2 }}>{pwSuccess}</Alert>
         )}
+      </Paper>
+
+      <Paper sx={{ p: 4, maxWidth: 700, width: "100%" }} elevation={2}>
+        <Typography variant="h6" mb={2}>
+          Score-Transparenz
+        </Typography>
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Datum</TableCell>
+                <TableCell>Grund</TableCell>
+                <TableCell>Termin</TableCell>
+                <TableCell align="right">Delta</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {scoreHistory.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4}>Keine Einträge vorhanden.</TableCell>
+                </TableRow>
+              )}
+              {scoreHistory.map((item, idx) => (
+                <TableRow key={`${item.created_at}-${idx}`}>
+                  <TableCell>{formatDateTime(item.created_at)}</TableCell>
+                  <TableCell>{item.reason}</TableCell>
+                  <TableCell>{item.termin_titel || "-"}</TableCell>
+                  <TableCell align="right">{item.delta > 0 ? `+${item.delta}` : item.delta}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </Paper>
 
       <Dialog open={pwDialogOpen} onClose={() => setPwDialogOpen(false)}>

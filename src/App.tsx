@@ -49,6 +49,19 @@ const App: React.FC = () => {
         />
         <Route path="*" element={<Navigate to={user ? "/" : "/login"} />} />
       </Routes>
+      <Box
+        sx={{
+          position: "fixed",
+          bottom: 8,
+          right: 12,
+          fontSize: 10,
+          color: "text.secondary",
+          opacity: 0.7,
+          zIndex: 1200,
+        }}
+      >
+        © Nick Bayer
+      </Box>
     </>
   );
 };

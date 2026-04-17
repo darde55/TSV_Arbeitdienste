@@ -52,6 +52,14 @@ type User = {
   visible?: boolean;
 };
 
+type UserTerminKurz = {
+  id: number;
+  titel: string;
+  datum: string;
+  beginn?: string;
+  ende?: string;
+};
+
 type CalendarEvent = RBCEvent & {
   resource: Termin;
 };
@@ -69,6 +77,8 @@ const Dashboard: React.FC = () => {
   const [tauschOpen, setTauschOpen] = useState(false);
   const [tauschTermin, setTauschTermin] = useState<Termin | null>(null);
   const [tauschUser, setTauschUser] = useState<string>("");
+  const [tauschUserTermine, setTauschUserTermine] = useState<UserTerminKurz[]>([]);
+  const [tauschUserTerminId, setTauschUserTerminId] = useState<string>("");
 
   // Accordion-State für Kategorie-Abschnitte
   const [openKategorie, setOpenKategorie] = useState<Record<TerminKategorie, boolean>>({
@@ -303,6 +313,8 @@ const Dashboard: React.FC = () => {
   const handleTauschOpen = (termin: Termin) => {
     setTauschTermin(termin);
     setTauschUser("");
+    setTauschUserTermine([]);
+    setTauschUserTerminId("");
     setTauschOpen(true);
   };
 
@@ -310,16 +322,33 @@ const Dashboard: React.FC = () => {
     setTauschOpen(false);
     setTauschTermin(null);
     setTauschUser("");
+    setTauschUserTermine([]);
+    setTauschUserTerminId("");
   };
 
   const handleTauschConfirm = async () => {
     if (!tauschTermin || !tauschUser) return;
     try {
-      await api.post(`/termine/${tauschTermin.id}/tausch`, { newUsername: tauschUser });
+      await api.post("/termine/tausch/termin-zu-termin", {
+        partnerUsername: tauschUser,
+        eigenerTerminId: tauschTermin.id,
+        partnerTerminId: tauschUserTerminId ? Number(tauschUserTerminId) : undefined
+      });
       await fetchAllData();
     } finally {
       handleTauschClose();
     }
+  };
+
+  const handleTauschUserChange = async (username: string) => {
+    setTauschUser(username);
+    setTauschUserTerminId("");
+    if (!username) {
+      setTauschUserTermine([]);
+      return;
+    }
+    const res = await api.get<UserTerminKurz[]>(`/users/${username}/termine/aktiv`);
+    setTauschUserTermine(res.data);
   };
 
   const renderTeilnehmer = (termin: Termin) => {
@@ -359,7 +388,7 @@ const Dashboard: React.FC = () => {
         <DialogTitle>Tauschpartner wählen</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Wähle einen User aus, der dich für diesen Termin ersetzt.
+            Wähle einen User. Optional kannst du einen seiner aktiven Termine wählen. Wenn kein Termin gewählt ist, wird nur dein Termin übertragen.
           </DialogContentText>
           <Box sx={{ mt: 2 }}>
             <FormControl fullWidth size="small">
@@ -368,10 +397,28 @@ const Dashboard: React.FC = () => {
                 labelId="tausch-user-label"
                 value={tauschUser}
                 label="User"
-                onChange={(e) => setTauschUser(e.target.value as string)}
+                onChange={(e) => handleTauschUserChange(e.target.value as string)}
               >
                 {tauschPartnerOptions.map(username => (
                   <MenuItem key={username} value={username}>{username}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+          <Box sx={{ mt: 2 }}>
+            <FormControl fullWidth size="small" disabled={!tauschUser}>
+              <InputLabel id="tausch-termin-label">Termin des Users</InputLabel>
+              <Select
+                labelId="tausch-termin-label"
+                value={tauschUserTerminId}
+                label="Termin des Users"
+                onChange={(e) => setTauschUserTerminId(e.target.value as string)}
+              >
+                <MenuItem value="">Kein Termin (nur übertragen)</MenuItem>
+                {tauschUserTermine.map(t => (
+                  <MenuItem key={t.id} value={String(t.id)}>
+                    {t.titel} ({formatDate(t.datum)}{t.beginn && ` um ${formatTime(t.beginn)}`})
+                  </MenuItem>
                 ))}
               </Select>
             </FormControl>
