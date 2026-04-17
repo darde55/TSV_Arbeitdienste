@@ -59,6 +59,7 @@ const initialTermin: Omit<Termin, "id" | "teilnehmer"> = {
 const TerminAdmin: React.FC = () => {
   const { user } = useUserStore();
   const isAdmin = user?.role === "admin";
+  const canExport = user?.role === "admin" || user?.role === "organisator";
   const [termine, setTermine] = useState<Termin[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [selectedTermin, setSelectedTermin] = useState<Termin | null>(null);
@@ -150,6 +151,19 @@ const TerminAdmin: React.FC = () => {
     await api.put(`/termine/${zufallTermin.id}/zufallspool`, { usernames: zufallSelected });
     setSnack("Zufallsauswahl-Pool gespeichert!");
     handleZufallClose();
+  };
+
+  const handleExportExcel = async () => {
+    const res = await api.get("/termine/export/excel", { responseType: "blob" });
+    const blobUrl = window.URL.createObjectURL(res.data);
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    const today = new Date().toISOString().split("T")[0];
+    link.download = `termine_export_${today}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(blobUrl);
   };
 
   const handleZufallStart = async () => {
@@ -300,6 +314,15 @@ const TerminAdmin: React.FC = () => {
       >
         Neuen Termin anlegen
       </Button>
+      {canExport && (
+        <Button
+          variant="outlined"
+          sx={{ mb: 2, ml: 2 }}
+          onClick={handleExportExcel}
+        >
+          Excel-Export
+        </Button>
+      )}
       <TableContainer>
         <Table size="small">
           <TableHead>

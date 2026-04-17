@@ -289,6 +289,20 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const renderTeilnehmer = (termin: Termin) => {
+    if (!termin.teilnehmer || termin.teilnehmer.length === 0) {
+      return <Typography sx={{ mb: 1 }}>Teilnehmer: -</Typography>;
+    }
+    return (
+      <Box sx={{ mb: 1, display: "flex", flexWrap: "wrap", gap: 1, alignItems: "center" }}>
+        <Typography sx={{ mr: 1 }}>Teilnehmer:</Typography>
+        {termin.teilnehmer.map(tn => (
+          <Chip key={tn.username} size="small" label={tn.username} />
+        ))}
+      </Box>
+    );
+  };
+
   return (
     <Box sx={{ maxWidth: 1000, mx: "auto", mt: 3, mb: 4 }}>
       <Snackbar
@@ -386,6 +400,7 @@ const Dashboard: React.FC = () => {
               <Typography sx={{ mb: 1 }}>Stichtag: {formatDate(naechsterTermin.stichtag)}</Typography>
               <Typography sx={{ mb: 1 }}>Ansprechpartner: {naechsterTermin.ansprechpartner_name || "-"} {naechsterTermin.ansprechpartner_mail && `(${naechsterTermin.ansprechpartner_mail})`}</Typography>
               <Typography sx={{ mb: 1 }}>Beschreibung: {naechsterTermin.beschreibung || "-"}</Typography>
+              {renderTeilnehmer(naechsterTermin)}
             </AccordionDetails>
           </Accordion>
         </Paper>
@@ -460,6 +475,7 @@ const Dashboard: React.FC = () => {
                       <Typography sx={{ mb: 1 }}>Stichtag: {formatDate(t.stichtag)}</Typography>
                       <Typography sx={{ mb: 1 }}>Ansprechpartner: {t.ansprechpartner_name || "-"} {t.ansprechpartner_mail && `(${t.ansprechpartner_mail})`}</Typography>
                       <Typography sx={{ mb: 1 }}>Beschreibung: {t.beschreibung || "-"}</Typography>
+                      {renderTeilnehmer(t)}
                     </AccordionDetails>
                   </Accordion>
                 </Paper>
