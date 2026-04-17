@@ -16,6 +16,12 @@ import {
   FormControl,
   InputLabel,
   Pagination,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControlLabel,
+  Checkbox,
 } from "@mui/material";
 import { Delete, Edit } from "@mui/icons-material";
 import api from "../api/api";
@@ -53,6 +59,9 @@ const UserAdmin: React.FC = () => {
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState<string>("");
   const [page, setPage] = useState(1);
+  const [scoreResetOpen, setScoreResetOpen] = useState(false);
+  const [scoreResetConfirm, setScoreResetConfirm] = useState(false);
+  const [scoreResetConfirm2, setScoreResetConfirm2] = useState(false);
 
   // Fetch all users
   const fetchUsers = useCallback(async () => {
@@ -136,6 +145,32 @@ const UserAdmin: React.FC = () => {
     }
   };
 
+  const handleScoreResetOpen = () => {
+    setScoreResetOpen(true);
+    setScoreResetConfirm(false);
+    setScoreResetConfirm2(false);
+  };
+
+  const handleScoreResetClose = () => {
+    setScoreResetOpen(false);
+    setScoreResetConfirm(false);
+    setScoreResetConfirm2(false);
+  };
+
+  const handleScoreReset = async () => {
+    if (!scoreResetConfirm || !scoreResetConfirm2) return;
+    try {
+      await api.post("/scores/reset");
+      setMessage("Scores wurden auf 0 gesetzt.");
+      fetchUsers();
+    } catch (err) {
+      setMessage("Fehler beim Zurücksetzen der Scores!");
+      console.error("Score Reset Error:", err);
+    } finally {
+      handleScoreResetClose();
+    }
+  };
+
   // Suche und Pagination für Userliste
   const filteredUsers = users.filter(u =>
     u.username.toLowerCase().includes(search.toLowerCase()) ||
@@ -155,6 +190,43 @@ const UserAdmin: React.FC = () => {
       </Typography>
       {/* Abschnitt 1: Neuen Benutzer anlegen oder bearbeiten */}
       <Typography mb={1}>{editUser ? "Benutzer bearbeiten:" : "Neuen Benutzer anlegen:"}</Typography>
+      <Dialog open={scoreResetOpen} onClose={handleScoreResetClose}>
+        <DialogTitle>Scores zurücksetzen</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mb: 1 }}>
+            Dieser Vorgang setzt die Scores aller User auf 0 und kann nicht rückgängig gemacht werden.
+          </Typography>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={scoreResetConfirm}
+                onChange={(e) => setScoreResetConfirm(e.target.checked)}
+              />
+            }
+            label="Ich bestätige das Zurücksetzen der Scores."
+          />
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={scoreResetConfirm2}
+                onChange={(e) => setScoreResetConfirm2(e.target.checked)}
+              />
+            }
+            label="Mir ist bewusst, dass dies nicht rückgängig gemacht werden kann."
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleScoreResetClose}>Abbrechen</Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleScoreReset}
+            disabled={!scoreResetConfirm || !scoreResetConfirm2}
+          >
+            Jetzt zurücksetzen
+          </Button>
+        </DialogActions>
+      </Dialog>
       <Box mb={2} display="flex" flexWrap="wrap" gap={1}>
         <TextField
           label="Benutzername"
@@ -233,6 +305,16 @@ const UserAdmin: React.FC = () => {
           </Button>
         )}
       </Box>
+      <Divider sx={{ my: 2 }} />
+      <Typography variant="h6" mb={2}>
+        Score-Einstellungen
+      </Typography>
+      <Typography mb={1}>
+        Neue Saison starten: setzt die Scores aller User auf 0.
+      </Typography>
+      <Button variant="outlined" color="error" onClick={handleScoreResetOpen}>
+        Neue Saison
+      </Button>
       <Divider sx={{ my: 2 }} />
       {/* Abschnitt 2: User bearbeiten/löschen */}
       <Typography mb={1}>Vorhandene Benutzer bearbeiten/löschen:</Typography>

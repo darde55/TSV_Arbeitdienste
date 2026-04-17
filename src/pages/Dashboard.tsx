@@ -3,7 +3,7 @@ import {
   Paper, Typography, Accordion, AccordionSummary, AccordionDetails,
   Table, TableBody, TableCell, TableHead, TableRow, Box, Button,
   Avatar, TableContainer, Snackbar, Alert, Chip, Dialog, DialogTitle,
-  DialogContent, DialogContentText, DialogActions
+  DialogContent, DialogContentText, DialogActions, FormControl, InputLabel, Select, MenuItem
 } from "@mui/material";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
@@ -13,6 +13,7 @@ import { format, parse, startOfWeek, getDay } from "date-fns";
 import { de } from "date-fns/locale";
 import api from "../api/api";
 import axios from "axios";
+import { useUserStore } from "../store/userStore";
 
 // Kalender-Lokalisierung
 const locales = { 'de': de };
@@ -55,6 +56,7 @@ type CalendarEvent = RBCEvent & {
 };
 
 const Dashboard: React.FC = () => {
+  const { user } = useUserStore();
   const [termine, setTermine] = useState<Termin[]>([]);
   const [userTermine, setUserTermine] = useState<Termin[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -63,6 +65,9 @@ const Dashboard: React.FC = () => {
   const [tokenError, setTokenError] = useState<string>("");
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [selectedEventForAnmeldung, setSelectedEventForAnmeldung] = useState<Termin | null>(null);
+  const [tauschOpen, setTauschOpen] = useState(false);
+  const [tauschTermin, setTauschTermin] = useState<Termin | null>(null);
+  const [tauschUser, setTauschUser] = useState<string>("");
 
   // Accordion-State für Kategorie-Abschnitte
   const [openKategorie, setOpenKategorie] = useState<Record<TerminKategorie, boolean>>({
@@ -229,6 +234,11 @@ const Dashboard: React.FC = () => {
   const usersFiltered = users.filter(u => u.role !== "admin");
   const tableHeaderSx = { background: "#f5f5f5", fontWeight: 700 };
 
+  const tauschPartnerOptions = usersFiltered
+    .filter(u => u.username !== user?.username)
+    .map(u => u.username)
+    .sort((a, b) => a.localeCompare(b));
+
   // Funktion gibt jetzt immer eine Zahl zurück!
   function offenePlaetze(t: Termin): number {
     const max = t.anzahl ?? 0;
@@ -289,6 +299,28 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const handleTauschOpen = (termin: Termin) => {
+    setTauschTermin(termin);
+    setTauschUser("");
+    setTauschOpen(true);
+  };
+
+  const handleTauschClose = () => {
+    setTauschOpen(false);
+    setTauschTermin(null);
+    setTauschUser("");
+  };
+
+  const handleTauschConfirm = async () => {
+    if (!tauschTermin || !tauschUser) return;
+    try {
+      await api.post(`/termine/${tauschTermin.id}/tausch`, { newUsername: tauschUser });
+      await fetchAllData();
+    } finally {
+      handleTauschClose();
+    }
+  };
+
   const renderTeilnehmer = (termin: Termin) => {
     if (!termin.teilnehmer || termin.teilnehmer.length === 0) {
       return <Typography sx={{ mb: 1 }}>Teilnehmer: -</Typography>;
@@ -321,6 +353,40 @@ const Dashboard: React.FC = () => {
           {tokenError}
         </Alert>
       )}
+
+      <Dialog open={tauschOpen} onClose={handleTauschClose}>
+        <DialogTitle>Tauschpartner wählen</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Wähle einen User aus, der dich für diesen Termin ersetzt.
+          </DialogContentText>
+          <Box sx={{ mt: 2 }}>
+            <FormControl fullWidth size="small">
+              <InputLabel id="tausch-user-label">User</InputLabel>
+              <Select
+                labelId="tausch-user-label"
+                value={tauschUser}
+                label="User"
+                onChange={(e) => setTauschUser(e.target.value as string)}
+              >
+                {tauschPartnerOptions.map(username => (
+                  <MenuItem key={username} value={username}>{username}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleTauschClose}>Abbrechen</Button>
+          <Button
+            variant="contained"
+            onClick={handleTauschConfirm}
+            disabled={!tauschUser}
+          >
+            Tauschen
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Paper sx={{ p: 2, mb: 4 }}>
         <Typography variant="h5" mb={2}>Terminkalender</Typography>
@@ -401,6 +467,16 @@ const Dashboard: React.FC = () => {
               <Typography sx={{ mb: 1 }}>Ansprechpartner: {naechsterTermin.ansprechpartner_name || "-"} {naechsterTermin.ansprechpartner_mail && `(${naechsterTermin.ansprechpartner_mail})`}</Typography>
               <Typography sx={{ mb: 1 }}>Beschreibung: {naechsterTermin.beschreibung || "-"}</Typography>
               {renderTeilnehmer(naechsterTermin)}
+              {userTerminIds.has(naechsterTermin.id) && (
+                <Button
+                  variant="outlined"
+                  size="small"
+                  sx={{ mt: 1 }}
+                  onClick={() => handleTauschOpen(naechsterTermin)}
+                >
+                  Tauschpartner
+                </Button>
+              )}
             </AccordionDetails>
           </Accordion>
         </Paper>
@@ -476,6 +552,16 @@ const Dashboard: React.FC = () => {
                       <Typography sx={{ mb: 1 }}>Ansprechpartner: {t.ansprechpartner_name || "-"} {t.ansprechpartner_mail && `(${t.ansprechpartner_mail})`}</Typography>
                       <Typography sx={{ mb: 1 }}>Beschreibung: {t.beschreibung || "-"}</Typography>
                       {renderTeilnehmer(t)}
+                      {userTerminIds.has(t.id) && (
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          sx={{ mt: 1 }}
+                          onClick={() => handleTauschOpen(t)}
+                        >
+                          Tauschpartner
+                        </Button>
+                      )}
                     </AccordionDetails>
                   </Accordion>
                 </Paper>

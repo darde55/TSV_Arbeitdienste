@@ -72,6 +72,10 @@ const TerminAdmin: React.FC = () => {
   const [zufallSelected, setZufallSelected] = useState<string[]>([]);
   const [zufallLoading, setZufallLoading] = useState(false);
   const [zufallResult, setZufallResult] = useState<{ zugeordnet: string[]; uebersprungen: string[]; fehlend: number } | null>(null);
+  const [exportKategorie, setExportKategorie] = useState<"Alle" | TerminKategorie>("Alle");
+  const [exportVon, setExportVon] = useState<string>("");
+  const [exportBis, setExportBis] = useState<string>("");
+  const exportDateInvalid = !!exportVon && !!exportBis && exportVon > exportBis;
 
   const eligibleUsers = useMemo(
     () => users.filter(u => u.role !== "admin"),
@@ -154,12 +158,22 @@ const TerminAdmin: React.FC = () => {
   };
 
   const handleExportExcel = async () => {
-    const res = await api.get("/termine/export/excel", { responseType: "blob" });
+    if (exportDateInvalid) {
+      setSnack("Bitte gültigen Zeitraum wählen (Von ≤ Bis).");
+      return;
+    }
+    const params: Record<string, string> = {};
+    if (exportKategorie !== "Alle") params.kategorie = exportKategorie;
+    if (exportVon) params.von = exportVon;
+    if (exportBis) params.bis = exportBis;
+    const res = await api.get("/termine/export/excel", { responseType: "blob", params });
     const blobUrl = window.URL.createObjectURL(res.data);
     const link = document.createElement("a");
     link.href = blobUrl;
     const today = new Date().toISOString().split("T")[0];
-    link.download = `termine_export_${today}.xlsx`;
+    const suffix = exportKategorie === "Alle" ? "" : `_${exportKategorie.toLowerCase()}`;
+    const dateSuffix = `${exportVon ? `_von-${exportVon}` : ""}${exportBis ? `_bis-${exportBis}` : ""}`;
+    link.download = `termine_export${suffix}${dateSuffix}_${today}.xlsx`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -315,13 +329,48 @@ const TerminAdmin: React.FC = () => {
         Neuen Termin anlegen
       </Button>
       {canExport && (
-        <Button
-          variant="outlined"
-          sx={{ mb: 2, ml: 2 }}
-          onClick={handleExportExcel}
-        >
-          Excel-Export
-        </Button>
+        <Box sx={{ display: "inline-flex", alignItems: "center", gap: 1, mb: 2, ml: 2, flexWrap: "wrap" }}>
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <InputLabel id="export-kategorie-label">Termintyp</InputLabel>
+            <Select
+              labelId="export-kategorie-label"
+              value={exportKategorie}
+              label="Termintyp"
+              onChange={(e: SelectChangeEvent) => setExportKategorie(e.target.value as "Alle" | TerminKategorie)}
+            >
+              <MenuItem value="Alle">Alle</MenuItem>
+              {kategorien.map(kat => (
+                <MenuItem key={kat} value={kat}>{kat}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <TextField
+            size="small"
+            type="date"
+            label="Von"
+            value={exportVon}
+            onChange={(e) => setExportVon(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            error={exportDateInvalid}
+          />
+          <TextField
+            size="small"
+            type="date"
+            label="Bis"
+            value={exportBis}
+            onChange={(e) => setExportBis(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            error={exportDateInvalid}
+            helperText={exportDateInvalid ? "Von darf nicht nach Bis liegen" : ""}
+          />
+          <Button
+            variant="outlined"
+            onClick={handleExportExcel}
+            disabled={exportDateInvalid}
+          >
+            Excel-Export
+          </Button>
+        </Box>
       )}
       <TableContainer>
         <Table size="small">
