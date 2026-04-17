@@ -590,6 +590,14 @@ const Dashboard: React.FC = () => {
               <Typography>Stichtag: {formatDate(t.stichtag)}</Typography>
               <Typography>Ansprechpartner: {t.ansprechpartner_name} {t.ansprechpartner_mail && `(${t.ansprechpartner_mail})`}</Typography>
               <Typography>Score: {t.score}</Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                sx={{ mt: 1 }}
+                onClick={() => handleTauschOpen(t)}
+              >
+                Tauschpartner
+              </Button>
             </AccordionDetails>
           </Accordion>
         ))}
