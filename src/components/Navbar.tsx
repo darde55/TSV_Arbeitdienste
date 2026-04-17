@@ -50,9 +50,6 @@ const Navbar: React.FC = () => {
                   {(user.role === "admin" || user.role === "organisator") && (
                     <MenuItem onClick={() => go("/admin")}>{user.role === "admin" ? "Admin" : "Terminverwaltung"}</MenuItem>
                   )}
-                  {user.role === "admin" && (
-                    <MenuItem onClick={() => go("/kiosk")}>Kiosk</MenuItem>
-                  )}
                   <MenuItem
                     onClick={() => {
                       logout();
@@ -80,11 +77,6 @@ const Navbar: React.FC = () => {
                 {(user.role === "admin" || user.role === "organisator") && (
                   <Button color="inherit" onClick={() => go("/admin")}>
                     {user.role === "admin" ? "Admin" : "Terminverwaltung"}
-                  </Button>
-                )}
-                {user.role === "admin" && (
-                  <Button color="inherit" onClick={() => go("/kiosk")}>
-                    Kiosk
                   </Button>
                 )}
                 <Button color="inherit" onClick={() => { logout(); go("/login"); }}>

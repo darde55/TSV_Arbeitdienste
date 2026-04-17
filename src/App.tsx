@@ -5,7 +5,6 @@ import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
 import Profile from "./pages/Profile";
 import Admin from "./pages/Admin";
-import Kiosk from "./pages/Kiosk"; // <--- Importiert!
 import { useUserStore } from "./store/userStore";
 import { CircularProgress, Box } from "@mui/material";
 
@@ -36,15 +35,6 @@ const App: React.FC = () => {
           path="/admin"
           element={
             user && (user.role === "admin" || user.role === "organisator") ? <Admin /> : <Navigate to="/" />
-          }
-        />
-        {/* --- Kiosk Route korrekt ergänzt --- */}
-        <Route
-          path="/kiosk"
-          element={
-            user && user.role === "admin"
-              ? <Kiosk user={user} />
-              : <Navigate to="/" />
           }
         />
         <Route path="*" element={<Navigate to={user ? "/" : "/login"} />} />
