@@ -52,6 +52,17 @@ const ROLE_OPTIONS = [
 
 const PAGE_SIZE = 10;
 
+const isVisible = (value: unknown): boolean => {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const v = value.trim().toLowerCase();
+    if (["false", "0", "f", "no", "nein", "off"].includes(v)) return false;
+    if (["true", "1", "t", "yes", "ja", "on"].includes(v)) return true;
+  }
+  return value !== false;
+};
+
 const UserAdmin: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   // Score wird beim Bearbeiten als eigener State gehalten
@@ -272,7 +283,7 @@ const UserAdmin: React.FC = () => {
         <FormControlLabel
           control={
             <Checkbox
-              checked={form.visible !== false}
+              checked={isVisible(form.visible)}
               onChange={(e) => setForm(prev => ({ ...prev, visible: e.target.checked }))}
             />
           }

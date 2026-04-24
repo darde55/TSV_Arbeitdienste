@@ -64,6 +64,17 @@ type CalendarEvent = RBCEvent & {
   resource: Termin;
 };
 
+const isVisible = (value: unknown): boolean => {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const v = value.trim().toLowerCase();
+    if (["false", "0", "f", "no", "nein", "off"].includes(v)) return false;
+    if (["true", "1", "t", "yes", "ja", "on"].includes(v)) return true;
+  }
+  return value !== false;
+};
+
 const Dashboard: React.FC = () => {
   const { user } = useUserStore();
   const [termine, setTermine] = useState<Termin[]>([]);
@@ -242,7 +253,7 @@ const Dashboard: React.FC = () => {
   );
 
   // Admins aus Score-Tabelle herausfiltern
-  const usersFiltered = users.filter(u => u.role !== "admin" && u.visible !== false);
+  const usersFiltered = users.filter(u => u.role !== "admin" && isVisible(u.visible));
   const tableHeaderSx = { background: "#f5f5f5", fontWeight: 700 };
 
   const tauschPartnerOptions = usersFiltered
