@@ -14,6 +14,7 @@ import { useUserStore } from "../store/userStore";
 
 type TerminKategorie = "Schiedsrichter" | "Grillen" | "Sonstiges";
 const kategorien: TerminKategorie[] = ["Schiedsrichter", "Grillen", "Sonstiges"];
+type TerminSort = "datum_asc" | "datum_desc" | "titel_asc" | "titel_desc" | "score_asc" | "score_desc";
 
 type Termin = {
   id: number;
@@ -75,12 +76,51 @@ const TerminAdmin: React.FC = () => {
   const [exportKategorie, setExportKategorie] = useState<"Alle" | TerminKategorie>("Alle");
   const [exportVon, setExportVon] = useState<string>("");
   const [exportBis, setExportBis] = useState<string>("");
+  const [filterKategorie, setFilterKategorie] = useState<"Alle" | TerminKategorie>("Alle");
+  const [sortBy, setSortBy] = useState<TerminSort>("datum_asc");
+  const [searchText, setSearchText] = useState<string>("");
   const exportDateInvalid = !!exportVon && !!exportBis && exportVon > exportBis;
+
+  const resetFilters = () => {
+    setSearchText("");
+    setFilterKategorie("Alle");
+    setSortBy("datum_asc");
+  };
 
   const eligibleUsers = useMemo(
     () => users.filter(u => u.role !== "admin"),
     [users]
   );
+
+  const termineView = useMemo(() => {
+    const q = searchText.trim().toLowerCase();
+    const filtered = termine.filter((t) => {
+      const categoryOk = filterKategorie === "Alle" || t.kategorie === filterKategorie;
+      const matchesText =
+        q.length === 0 ||
+        (t.titel ?? "").toLowerCase().includes(q) ||
+        (t.beschreibung ?? "").toLowerCase().includes(q);
+      return categoryOk && matchesText;
+    });
+
+    return filtered.slice().sort((a, b) => {
+      switch (sortBy) {
+        case "datum_desc":
+          return new Date(b.datum).getTime() - new Date(a.datum).getTime();
+        case "titel_asc":
+          return (a.titel ?? "").localeCompare(b.titel ?? "");
+        case "titel_desc":
+          return (b.titel ?? "").localeCompare(a.titel ?? "");
+        case "score_asc":
+          return (a.score ?? 0) - (b.score ?? 0);
+        case "score_desc":
+          return (b.score ?? 0) - (a.score ?? 0);
+        case "datum_asc":
+        default:
+          return new Date(a.datum).getTime() - new Date(b.datum).getTime();
+      }
+    });
+  }, [termine, filterKategorie, sortBy, searchText]);
 
   useEffect(() => {
     fetchTermine();
@@ -372,6 +412,49 @@ const TerminAdmin: React.FC = () => {
           </Button>
         </Box>
       )}
+      <Box sx={{ display: "flex", gap: 1, mb: 2, flexWrap: "wrap", alignItems: "center" }}>
+        <TextField
+          size="small"
+          label="Suche"
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          placeholder="Titel oder Beschreibung"
+          sx={{ minWidth: 220 }}
+        />
+        <FormControl size="small" sx={{ minWidth: 160 }}>
+          <InputLabel id="filter-kategorie-label">Kategorie</InputLabel>
+          <Select
+            labelId="filter-kategorie-label"
+            value={filterKategorie}
+            label="Kategorie"
+            onChange={(e: SelectChangeEvent) => setFilterKategorie(e.target.value as "Alle" | TerminKategorie)}
+          >
+            <MenuItem value="Alle">Alle</MenuItem>
+            {kategorien.map((kat) => (
+              <MenuItem key={kat} value={kat}>{kat}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <FormControl size="small" sx={{ minWidth: 220 }}>
+          <InputLabel id="sort-by-label">Sortierung</InputLabel>
+          <Select
+            labelId="sort-by-label"
+            value={sortBy}
+            label="Sortierung"
+            onChange={(e: SelectChangeEvent) => setSortBy(e.target.value as TerminSort)}
+          >
+            <MenuItem value="datum_asc">Datum aufsteigend</MenuItem>
+            <MenuItem value="datum_desc">Datum absteigend</MenuItem>
+            <MenuItem value="titel_asc">Titel A-Z</MenuItem>
+            <MenuItem value="titel_desc">Titel Z-A</MenuItem>
+            <MenuItem value="score_asc">Score aufsteigend</MenuItem>
+            <MenuItem value="score_desc">Score absteigend</MenuItem>
+          </Select>
+        </FormControl>
+        <Button variant="text" onClick={resetFilters}>
+          Filter zurücksetzen
+        </Button>
+      </Box>
       <TableContainer>
         <Table size="small">
           <TableHead>
@@ -389,7 +472,7 @@ const TerminAdmin: React.FC = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {termine.map(t => (
+            {termineView.map(t => (
               <TableRow key={t.id}>
                 <TableCell>{t.titel}</TableCell>
                 <TableCell>{t.datum}</TableCell>
